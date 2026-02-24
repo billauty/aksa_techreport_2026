@@ -337,7 +337,7 @@ build_test_content <- function(appendix_obj) {
 # ------------------------------------------------------------
 # Table 6 — IRT Model Summary
 # Reports test-level IRT summary statistics: grade, N, number of
-# items, model type, and marginal reliability.
+# items, model type, and fit statistics.
 #
 # Arguments:
 #   mirt_model  - fitted mirt model object
@@ -349,37 +349,42 @@ build_test_content <- function(appendix_obj) {
 make_table_06_irt_summary <- function(mirt_model, grade, n_persons) {
   n_items    <- extract.mirt(mirt_model, "nitems")
   model_type <- paste(unique(extract.mirt(mirt_model, "itemtype")), collapse = ", ")
-
-  # Marginal reliability via empirical reliability
-  rel <- empirical_rxx(fscores(mirt_model, returnER = TRUE))
-
+  
+  # Extract fit statistics directly instead of calculating empirical reliability
+  log_lik <- extract.mirt(mirt_model, "logLik")
+  aic <- extract.mirt(mirt_model, "AIC")
+  bic <- extract.mirt(mirt_model, "BIC")
+  
   summary_df <- data.frame(
     Grade           = grade,
     N               = n_persons,
     Items           = n_items,
     Model           = model_type,
-    Marginal_Rel    = rel,
+    LogLikelihood   = log_lik,
+    AIC             = aic,
+    BIC             = bic,
     stringsAsFactors = FALSE
   )
-
+  
   ft <- flextable(summary_df) |>
     set_header_labels(
-      Grade        = "Grade",
-      N            = "N",
-      Items        = "No. Items",
-      Model        = "IRT Model",
-      Marginal_Rel = "Marginal Reliability"
+      Grade         = "Grade",
+      N             = "N",
+      Items         = "No. Items",
+      Model         = "IRT Model",
+      LogLikelihood = "Log-Likelihood",
+      AIC           = "AIC",
+      BIC           = "BIC"
     ) |>
     colformat_int(j = c("Grade", "N", "Items")) |>
-    colformat_double(j = "Marginal_Rel", digits = 3) |>
+    colformat_double(j = c("LogLikelihood", "AIC", "BIC"), digits = 2) |>
     theme_vanilla() |>
-    align(align = "right", part = "body") |>
+    align(align = "center", part = "all") |>
     align(j = "Model", align = "left", part = "body") |>
-    align(align = "center", part = "header") |>
     set_caption(caption = "Table 6: IRT Model Summary") |>
     autofit()
-
-  ft
+  
+  return(ft)
 }
 
 # ------------------------------------------------------------
