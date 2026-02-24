@@ -26,5 +26,16 @@ list(
   # IRT tables and figures
   tar_target(table_06_irt_summary, make_table_06_irt_summary(mirt_model, grade = 7, n_persons = nrow(scored_resp))),
   tar_target(table_08_irt_params,  make_table_08_irt_params(mirt_model)),
-  tar_target(fig_03_csem,          make_figure_03_csem(mirt_model))
+  tar_target(fig_03_csem,          make_figure_03_csem(mirt_model)),
+
+  # Report assembly
+  tar_target(intro_docx,    make_empty_intro_docx(), format = "file"),
+  tar_target(report_content, assemble_report_content(
+    table_01_ctt_summary,
+    table_02_item_stats,
+    table_06_irt_summary,
+    table_08_irt_params,
+    fig_03_csem
+  )),
+  tar_target(final_report,  create_accessible_yearbook(report_content, intro_docx), format = "file")
 )
