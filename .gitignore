@@ -1,9 +1,47 @@
-.Rproj.user
+# /.gitignore
+
 .Rhistory
 .RData
-.Ruserdata
+.Rproj.user/
+.Rprofile
+.DS_Store
+*.Rproj
+
+# targets
 _targets/
-data/raw/*
+.tar_meta/
+.tar_objects/
+.tar_workspace/
+_targets.yaml
+
+# renv local library + cache (lockfile is committed, these are not)
+renv/library/
+renv/staging/
+renv/
+
+# Data files (IMPORTANT - exclude student data!)
+data/
+*.rds
+*.xlsx
+*.csv
+*.sas7bdat
 !data/raw/.gitkeep
-data/processed/*
 !data/processed/.gitkeep
+
+
+# Output files
+technical_report_files/
+reports/
+*.pdf
+*.docx
+*.html
+
+# Quarto
+/.quarto/
+_site/
+*_cache/
+*_files/
+
+# Sensitive or large files
+.Renviron
+.env
