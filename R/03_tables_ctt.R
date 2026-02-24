@@ -29,6 +29,7 @@ library(flextable)
 # Returns a flextable.
 # ------------------------------------------------------------
 make_table_01_score_summary <- function(scored_data) {
+  scored_data <- scored_data[, sapply(scored_data, is.numeric), drop = FALSE]
   total <- rowSums(scored_data, na.rm = TRUE)
 
   summary_df <- data.frame(
@@ -64,6 +65,7 @@ make_table_01_score_summary <- function(scored_data) {
 # Returns a flextable.
 # ------------------------------------------------------------
 make_table_02_item_stats <- function(scored_data) {
+  scored_data <- scored_data[, sapply(scored_data, is.numeric), drop = FALSE]
   item_stats <- lapply(names(scored_data), function(item) {
     x <- scored_data[[item]]
     x_complete <- x[!is.na(x)]

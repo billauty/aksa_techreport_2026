@@ -3,6 +3,7 @@ library(ggplot2)
 library(dplyr)
 library(tidyr)
 library(officer)
+library(mirt)
 
 # ------------------------------------------------------------
 # 1. Native Word Table for Item Statistics
@@ -331,4 +332,118 @@ build_test_content <- function(appendix_obj) {
       appendix_obj$meta$test, "test. The acceptable range between 0.5 and 1.5 is marked."
     )
   )
+}
+
+# ------------------------------------------------------------
+# Table 6 — IRT Model Summary
+# Reports test-level IRT summary statistics: grade, N, number of
+# items, model type, and marginal reliability.
+#
+# Arguments:
+#   mirt_model  - fitted mirt model object
+#   grade       - integer grade level
+#   n_persons   - integer number of examinees
+#
+# Returns a flextable.
+# ------------------------------------------------------------
+make_table_06_irt_summary <- function(mirt_model, grade, n_persons) {
+  n_items    <- extract.mirt(mirt_model, "nitems")
+  model_type <- paste(unique(extract.mirt(mirt_model, "itemtype")), collapse = ", ")
+
+  # Marginal reliability via empirical reliability
+  rel <- empirical_rxx(fscores(mirt_model, returnER = TRUE))
+
+  summary_df <- data.frame(
+    Grade           = grade,
+    N               = n_persons,
+    Items           = n_items,
+    Model           = model_type,
+    Marginal_Rel    = rel,
+    stringsAsFactors = FALSE
+  )
+
+  ft <- flextable(summary_df) |>
+    set_header_labels(
+      Grade        = "Grade",
+      N            = "N",
+      Items        = "No. Items",
+      Model        = "IRT Model",
+      Marginal_Rel = "Marginal Reliability"
+    ) |>
+    colformat_int(j = c("Grade", "N", "Items")) |>
+    colformat_double(j = "Marginal_Rel", digits = 3) |>
+    theme_vanilla() |>
+    align(align = "right", part = "body") |>
+    align(j = "Model", align = "left", part = "body") |>
+    align(align = "center", part = "header") |>
+    set_caption(caption = "Table 6: IRT Model Summary") |>
+    autofit()
+
+  ft
+}
+
+# ------------------------------------------------------------
+# Table 8 — IRT Item Parameter Estimates
+# Reports per-item IRT parameters (a, b, g) from the calibrated
+# mirt model.
+#
+# Arguments:
+#   mirt_model  - fitted mirt model object
+#
+# Returns a flextable.
+# ------------------------------------------------------------
+make_table_08_irt_params <- function(mirt_model) {
+  params <- coef(mirt_model, IRTpars = TRUE, simplify = TRUE)$items
+  params_df <- as.data.frame(params)
+  params_df$Item <- rownames(params_df)
+  rownames(params_df) <- NULL
+
+  # Keep only columns that exist in this model
+  keep_cols <- c("Item", intersect(c("a", "b", "g", "u"), names(params_df)))
+  params_df <- params_df[, keep_cols, drop = FALSE]
+
+  col_labels <- c(Item = "Item", a = "Discrimination (a)",
+                  b = "Difficulty (b)", g = "Guessing (g)", u = "Upper Asymptote (u)")
+  col_labels <- col_labels[names(col_labels) %in% names(params_df)]
+
+  ft <- flextable(params_df) |>
+    set_header_labels(.list = as.list(col_labels)) |>
+    colformat_double(
+      j = intersect(c("a", "b", "g", "u"), names(params_df)),
+      digits = 3
+    ) |>
+    theme_vanilla() |>
+    align(align = "right", part = "body") |>
+    align(j = "Item", align = "left", part = "body") |>
+    align(align = "center", part = "header") |>
+    set_caption(caption = "Table 8: IRT Item Parameter Estimates") |>
+    autofit()
+
+  ft
+}
+
+# ------------------------------------------------------------
+# Figure 3 — Conditional Standard Error of Measurement (CSEM)
+# Plots the CSEM as a function of the latent trait (theta).
+#
+# Arguments:
+#   mirt_model  - fitted mirt model object
+#
+# Returns a ggplot.
+# ------------------------------------------------------------
+make_figure_03_csem <- function(mirt_model) {
+  theta_seq  <- seq(-4, 4, by = 0.1)
+  info_vals  <- testinfo(mirt_model, Theta = matrix(theta_seq))
+  csem_vals  <- 1 / sqrt(info_vals)
+
+  plot_df <- data.frame(theta = theta_seq, CSEM = csem_vals)
+
+  ggplot(plot_df, aes(x = theta, y = CSEM)) +
+    geom_line(linewidth = 1) +
+    labs(
+      x     = expression(theta ~ "(Latent Trait)"),
+      y     = "Conditional SEM",
+      title = "Figure 3: Conditional Standard Error of Measurement"
+    ) +
+    theme_minimal()
 }
