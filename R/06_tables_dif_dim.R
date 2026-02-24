@@ -248,7 +248,7 @@ make_figure_04_dif_plot <- function(dif_data, group_name, fig_num = 4L) {
 make_table_09_item_fit <- function(mirt_model) {
   # fit_statistics = "infit" is the mirt API argument; despite the name, mirt
   # returns BOTH infit and outfit mean-square statistics in this call.
-  fit_stats <- mirt::itemfit(mirt_model, fit_statistics = "infit", na.rm = TRUE)
+  fit_stats <- mirt::itemfit(mirt_model, fit_stats = "infit", na.rm = TRUE)
 
   # Normalise column names — they vary slightly across mirt versions.
   # mirt::itemfit() always places item identifiers in a column named "item".
@@ -304,7 +304,7 @@ make_table_09_item_fit <- function(mirt_model) {
 make_figure_01_item_fit <- function(mirt_model) {
   # fit_statistics = "infit" is the mirt API argument; despite the name, mirt
   # returns BOTH infit and outfit mean-square statistics in this call.
-  fit_stats <- mirt::itemfit(mirt_model, fit_statistics = "infit", na.rm = TRUE)
+  fit_stats <- mirt::itemfit(mirt_model, fit_stats = "infit", na.rm = TRUE)
 
   # Normalise column names — they vary slightly across mirt versions.
   # mirt::itemfit() always places item identifiers in a column named "item".
