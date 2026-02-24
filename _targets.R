@@ -54,8 +54,8 @@ list(
   tar_target(table_05_distractor,
              make_table_05_distractor_analysis(
                raw_resp[, intersect(names(raw_resp), names(item_keys)), drop = FALSE],
-               item_keys),
-             pattern = map(raw_resp, item_keys)),
+               unlist(item_keys)),
+             pattern = map(raw_resp, item_keys)),,
 
   # ── IRT tables and figures ──────────────────────────────────────────────────
   tar_target(table_06_irt_summary,
