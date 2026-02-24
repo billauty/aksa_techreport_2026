@@ -366,6 +366,9 @@ make_table_06_irt_summary <- function(mirt_model, grade, n_persons) {
     stringsAsFactors = FALSE
   )
   
+  big_b <- fp_border(color = "black", width = 1.5)
+  std_b <- fp_border(color = "black", width = 1)
+
   ft <- flextable(summary_df) |>
     set_header_labels(
       Grade         = "Grade",
@@ -378,12 +381,17 @@ make_table_06_irt_summary <- function(mirt_model, grade, n_persons) {
     ) |>
     colformat_int(j = c("Grade", "N", "Items")) |>
     colformat_double(j = c("LogLikelihood", "AIC", "BIC"), digits = 2) |>
-    theme_vanilla() |>
+    border_remove() |>
+    hline_top(part = "header", border = big_b) |>
+    hline_bottom(part = "header", border = std_b) |>
+    hline_bottom(part = "body", border = big_b) |>
+    fontsize(size = 10, part = "all") |>
     align(align = "center", part = "all") |>
-    align(j = "Model", align = "left", part = "body") |>
-    set_caption(caption = "Table 6: IRT Model Summary") |>
+    align(j = "Model", align = "left", part = "all") |>
+    set_caption(caption = "Table 6: IRT Model Summary",
+                fp_p = fp_par(text.align = "left")) |>
     autofit()
-  
+
   return(ft)
 }
 
@@ -411,17 +419,24 @@ make_table_08_irt_params <- function(mirt_model) {
                   b = "Difficulty (b)", g = "Guessing (g)", u = "Upper Asymptote (u)")
   col_labels <- col_labels[names(col_labels) %in% names(params_df)]
 
+  big_b <- fp_border(color = "black", width = 1.5)
+  std_b <- fp_border(color = "black", width = 1)
+
   ft <- flextable(params_df) |>
     set_header_labels(.list = as.list(col_labels)) |>
     colformat_double(
       j = intersect(c("a", "b", "g", "u"), names(params_df)),
       digits = 3
     ) |>
-    theme_vanilla() |>
-    align(align = "right", part = "body") |>
-    align(j = "Item", align = "left", part = "body") |>
-    align(align = "center", part = "header") |>
-    set_caption(caption = "Table 8: IRT Item Parameter Estimates") |>
+    border_remove() |>
+    hline_top(part = "header", border = big_b) |>
+    hline_bottom(part = "header", border = std_b) |>
+    hline_bottom(part = "body", border = big_b) |>
+    fontsize(size = 10, part = "all") |>
+    align(align = "center", part = "all") |>
+    align(j = "Item", align = "left", part = "all") |>
+    set_caption(caption = "Table 8: IRT Item Parameter Estimates",
+                fp_p = fp_par(text.align = "left")) |>
     autofit()
 
   ft

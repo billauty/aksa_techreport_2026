@@ -1,4 +1,5 @@
 library(flextable)
+library(officer)
 
 # Internal helper: sample skewness (consistent with e1071 type 1)
 .skewness <- function(x) {
@@ -40,15 +41,22 @@ make_table_01_score_summary <- function(scored_data) {
     Max  = max(total, na.rm = TRUE)
   )
 
+  big_b <- fp_border(color = "black", width = 1.5)
+  std_b <- fp_border(color = "black", width = 1)
+
   ft <- flextable(summary_df) |>
     set_header_labels(N = "N", Mean = "Mean", SD = "SD",
                       Min = "Min", Max = "Max") |>
     colformat_double(j = c("Mean", "SD"), digits = 2) |>
     colformat_int(j = c("N", "Min", "Max")) |>
-    theme_vanilla() |>
-    align(align = "right", part = "body") |>
-    align(align = "center", part = "header") |>
-    set_caption(caption = "Table 1: CTT Score Summary") |>
+    border_remove() |>
+    hline_top(part = "header", border = big_b) |>
+    hline_bottom(part = "header", border = std_b) |>
+    hline_bottom(part = "body", border = big_b) |>
+    fontsize(size = 10, part = "all") |>
+    align(align = "center", part = "all") |>
+    set_caption(caption = "Table 1: CTT Score Summary",
+                fp_p = fp_par(text.align = "left")) |>
     autofit()
 
   ft
@@ -86,6 +94,9 @@ make_table_02_item_stats <- function(scored_data) {
 
   stats_df <- do.call(rbind, item_stats)
 
+  big_b <- fp_border(color = "black", width = 1.5)
+  std_b <- fp_border(color = "black", width = 1)
+
   ft <- flextable(stats_df) |>
     set_header_labels(
       Item     = "Item",
@@ -104,11 +115,15 @@ make_table_02_item_stats <- function(scored_data) {
       digits = 2
     ) |>
     colformat_int(j = "N") |>
-    theme_vanilla() |>
-    align(align = "right", part = "body") |>
-    align(j = "Item", align = "left", part = "body") |>
-    align(align = "center", part = "header") |>
-    set_caption(caption = "Table 2: CTT Item Statistics") |>
+    border_remove() |>
+    hline_top(part = "header", border = big_b) |>
+    hline_bottom(part = "header", border = std_b) |>
+    hline_bottom(part = "body", border = big_b) |>
+    fontsize(size = 10, part = "all") |>
+    align(align = "center", part = "all") |>
+    align(j = "Item", align = "left", part = "all") |>
+    set_caption(caption = "Table 2: CTT Item Statistics",
+                fp_p = fp_par(text.align = "left")) |>
     autofit()
 
   ft
