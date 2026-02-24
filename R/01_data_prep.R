@@ -8,12 +8,12 @@
 load_all_data <- function(data_dir = "data") {
   
   # 1. Ingest and transform the SAS keys into a named list of vectors
-  # Groups by Subject and grade (e.g. "MA_03") and creates a vector of keys named by Task
+  # Groups by Subject and grade (e.g., "MA_03") 
   raw_keys <- haven::read_sas(file.path(data_dir, "raw/alt_response_key.sas7bdat"))
   
   keys_list <- split(raw_keys, paste(raw_keys$Subject, raw_keys$grade, sep = "_")) |> 
     lapply(function(df) {
-      # Extract the Key column and name the elements using the Task column
+      # Extract the 'Key' column and name the elements using the 'Task' column
       setNames(as.character(df$Key), as.character(df$Task))
     })
   
