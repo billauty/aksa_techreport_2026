@@ -6,7 +6,7 @@
 create_accessible_yearbook <- function(test_content_objects, intro_docx) {
   doc <- officer::read_docx(intro_docx)
 
-  # Normalise: allow a single content object or a list of objects
+  # Normalize: allow a single content object or a list of objects
   if (!is.null(test_content_objects[["ft"]])) {
     test_content_objects <- list(test_content_objects)
   }
