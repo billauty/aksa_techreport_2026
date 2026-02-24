@@ -55,7 +55,7 @@ list(
              make_table_05_distractor_analysis(
                raw_resp[, intersect(names(raw_resp), names(item_keys)), drop = FALSE],
                unlist(item_keys)),
-             pattern = map(raw_resp, item_keys)),,
+             pattern = map(raw_resp, item_keys)),
 
   # ── IRT tables and figures ──────────────────────────────────────────────────
   tar_target(table_06_irt_summary,
@@ -150,44 +150,42 @@ list(
     make_figure_11_anchor_drift(drift_df, test_id = test_ids)
   }, pattern = map(test_ids), iteration = "list"),
 
-  # ── Per-test report content (one list per branch) ───────────────────────────
+  # ── Per-test report content ─────────────────────────────────────────────────
   tar_target(report_content, assemble_report_content(
-    table_01 = table_01_ctt_summary,
-    table_02 = table_02_item_stats,
-    table_03 = table_03_reliability,
-    table_04 = table_04_score_freq,
-    table_05 = table_05_distractor,
-    table_06 = table_06_irt_summary,
-    table_07 = table_07_raw_to_theta,
-    table_08 = table_08_irt_params,
-    table_09 = table_09_item_fit,
-    table_10 = table_10_q3_residuals,
-    table_11 = table_11_irt_reliability,
-    table_12 = table_12_dif_gender,
-    table_13 = table_13_dif_iep,
-    table_14 = table_14_dif_lep,
-    table_15 = table_15_class_accuracy,
-    table_16 = table_16_decision_consistency,
-    table_17 = table_17_napd_accuracy,
-    fig_01   = fig_01_item_fit,
-    fig_02   = fig_02_wright_map,
-    fig_03   = fig_03_csem,
-    fig_04   = fig_04_dif_gender,
-    fig_05   = fig_05_dif_iep,
-    fig_06   = fig_06_dif_lep,
-    figs_07_10 = figs_07_10_lci,
-    fig_11   = fig_11_anchor_drift
-  ), pattern = map(
-    table_01_ctt_summary, table_02_item_stats,
-    table_03_reliability, table_04_score_freq, table_05_distractor,
-    table_06_irt_summary, table_07_raw_to_theta, table_08_irt_params,
-    table_09_item_fit, table_10_q3_residuals, table_11_irt_reliability,
-    table_12_dif_gender, table_13_dif_iep, table_14_dif_lep,
-    table_15_class_accuracy, table_16_decision_consistency, table_17_napd_accuracy,
-    fig_01_item_fit, fig_02_wright_map, fig_03_csem,
-    fig_04_dif_gender, fig_05_dif_iep, fig_06_dif_lep,
-    figs_07_10_lci, fig_11_anchor_drift
-  ), iteration = "list"),
+    table_01_ctt_summary,
+    table_02_item_stats,
+    table_03_reliability,
+    table_04_score_freq,
+    table_05_distractor,
+    table_06_irt_summary,
+    table_07_raw_to_theta,
+    table_08_irt_params,
+    table_09_item_fit,
+    table_10_q3_residuals,
+    table_11_irt_reliability,
+    table_12_dif_lord,
+    table_13_dif_iep,
+    table_14_dif_lep,
+    table_15_class_acc,
+    table_16_decision_cons,
+    table_17_napd_acc,
+    fig_01_item_fit,
+    fig_02_wright_map,
+    fig_03_csem,
+    fig_04_dif_plot,
+    fig_05_dif_plot_iep,
+    fig_06_dif_plot_lep,
+    figs_07_10_learner,
+    fig_11_anchor_drift
+  ),
+  pattern = map(
+    table_01_ctt_summary, table_02_item_stats, table_03_reliability, table_04_score_freq, table_05_distractor,
+    table_06_irt_summary, table_07_raw_to_theta, table_08_irt_params, table_09_item_fit, table_10_q3_residuals,
+    table_11_irt_reliability, table_12_dif_lord, table_13_dif_iep, table_14_dif_lep, table_15_class_acc,
+    table_16_decision_cons, table_17_napd_acc, fig_01_item_fit, fig_02_wright_map, fig_03_csem,
+    fig_04_dif_plot, fig_05_dif_plot_iep, fig_06_dif_plot_lep, figs_07_10_learner, fig_11_anchor_drift
+  ),
+  iteration = "list"),
 
   # ── Final report assembly ───────────────────────────────────────────────────
   tar_target(intro_docx,   make_empty_intro_docx(), format = "file"),
