@@ -15,33 +15,89 @@ make_empty_intro_docx <- function() {
 # Aggregate the individually built table_* and fig_* targets into the
 # test_content_objects format expected by create_accessible_yearbook().
 #
-# Arguments:
-#   table_01_ctt_summary - flextable: CTT score summary (Table 1)
-#   table_02_item_stats  - flextable: CTT item statistics (Table 2)
-#   table_06_irt_summary - flextable: IRT model summary (Table 6)
-#   table_08_irt_params  - flextable: IRT item parameter estimates (Table 8)
-#   fig_03_csem          - ggplot: Conditional SEM curve (Figure 3)
+# Arguments (one per table/figure target, all per-test):
+#   table_01 .. table_17  - flextable objects (Tables 1-17; Tables 12-14 are
+#                           the $table element from make_table_12_dif_lord etc.)
+#   fig_01  .. fig_06     - ggplot objects (Figures 1-6)
+#   figs_07_10            - named list of ggplot objects (Figures 7-10)
+#   fig_11                - ggplot or NULL (Figure 11; NULL for tests without
+#                           anchor items)
 #
 # Returns a list with $tables (named list of flextable objects) and
 # $figures (named list of lists, each with $plot and $alt_text).
-assemble_report_content <- function(table_01_ctt_summary,
-                                    table_02_item_stats,
-                                    table_06_irt_summary,
-                                    table_08_irt_params,
-                                    fig_03_csem) {
+assemble_report_content <- function(table_01, table_02, table_03, table_04, table_05,
+                                    table_06, table_07, table_08, table_09, table_10,
+                                    table_11, table_12, table_13, table_14,
+                                    table_15, table_16, table_17,
+                                    fig_01, fig_02, fig_03,
+                                    fig_04, fig_05, fig_06,
+                                    figs_07_10,
+                                    fig_11) {
+  # Build the figures list, skipping any NULL entries (e.g. Figure 11 for
+  # Writing tests that have no anchor items).
+  named_figs <- list(
+    fig_01 = list(plot = fig_01,
+                  alt_text = "Item Infit and Outfit mean-square statistics for each item."),
+    fig_02 = list(plot = fig_02,
+                  alt_text = "Wright Map showing student ability and item difficulty on the same logit scale."),
+    fig_03 = list(plot = fig_03,
+                  alt_text = "Conditional Standard Error of Measurement (CSEM) plotted across the theta range."),
+    fig_04 = list(plot = fig_04,
+                  alt_text = "DIF magnitude and direction by Gender (Lord's Delta)."),
+    fig_05 = list(plot = fig_05,
+                  alt_text = "DIF magnitude and direction by IEP status (Lord's Delta)."),
+    fig_06 = list(plot = fig_06,
+                  alt_text = "DIF magnitude and direction by LEP status (Lord's Delta).")
+  )
+
+  # Add Figures 7-10 from the list (each element is a ggplot or NULL)
+  lci_labels <- c(
+    "Score distribution by Expressive Communication category.",
+    "Score distribution by Receptive Language category.",
+    "Score distribution by Reading category.",
+    "Score distribution by Mathematics category."
+  )
+  if (is.list(figs_07_10) && length(figs_07_10) > 0) {
+    for (i in seq_along(figs_07_10)) {
+      key <- paste0("fig_", sprintf("%02d", 6L + i))
+      label <- if (i <= length(lci_labels)) lci_labels[[i]] else
+                  paste0("Learner Characteristics figure ", i, ".")
+      named_figs[[key]] <- list(plot = figs_07_10[[i]], alt_text = label)
+    }
+  }
+
+  # Figure 11 — only include when not NULL
+  if (!is.null(fig_11)) {
+    named_figs[["fig_11"]] <- list(
+      plot     = fig_11,
+      alt_text = "Anchor item drift: robust-Z statistics with flagged items highlighted."
+    )
+  }
+
+  # Remove any entries whose $plot is NULL
+  named_figs <- Filter(function(x) !is.null(x$plot), named_figs)
+
   list(
     tables = list(
-      table_01_ctt_summary = table_01_ctt_summary,
-      table_02_item_stats  = table_02_item_stats,
-      table_06_irt_summary = table_06_irt_summary,
-      table_08_irt_params  = table_08_irt_params
+      table_01 = table_01,
+      table_02 = table_02,
+      table_03 = table_03,
+      table_04 = table_04,
+      table_05 = table_05,
+      table_06 = table_06,
+      table_07 = table_07,
+      table_08 = table_08,
+      table_09 = table_09,
+      table_10 = table_10,
+      table_11 = table_11,
+      table_12 = table_12,
+      table_13 = table_13,
+      table_14 = table_14,
+      table_15 = table_15,
+      table_16 = table_16,
+      table_17 = table_17
     ),
-    figures = list(
-      fig_03_csem = list(
-        plot     = fig_03_csem,
-        alt_text = "Conditional Standard Error of Measurement (CSEM) plotted across the theta (latent trait) range."
-      )
-    )
+    figures = named_figs
   )
 }
 

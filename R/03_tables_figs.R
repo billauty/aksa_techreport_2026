@@ -1,5 +1,6 @@
 library(flextable)
 library(ggplot2)
+library(ggrepel)
 library(dplyr)
 library(tidyr)
 library(officer)
@@ -466,4 +467,77 @@ make_figure_03_csem <- function(mirt_model) {
       title = "Figure 3: Conditional Standard Error of Measurement"
     ) +
     theme_minimal()
+}
+
+# ------------------------------------------------------------
+# Figure 2 — Wright Map (Person-Item Map)
+# Displays student ability estimates and item difficulty estimates
+# on the same logit scale.  Item difficulties are shown as labelled
+# points; student abilities are shown as a histogram.
+#
+# Arguments:
+#   mirt_model   - fitted mirt model object (SingleGroupClass)
+#   scored_resp  - data.frame of scored item responses as returned by
+#                  score_test_responses(); used to obtain person ability
+#                  estimates via mirt::fscores().
+#
+# Returns a ggplot.
+# ------------------------------------------------------------
+make_figure_02_wright_map <- function(mirt_model, scored_resp) {
+  # ── Item difficulties ──────────────────────────────────────────────────────
+  params    <- mirt::coef(mirt_model, IRTpars = TRUE, simplify = TRUE)$items
+  item_b    <- params[, "b"]
+  items_df  <- data.frame(
+    item_id    = names(item_b),
+    difficulty = as.numeric(item_b),
+    stringsAsFactors = FALSE
+  )
+
+  # ── Person ability estimates ───────────────────────────────────────────────
+  item_cols   <- setdiff(names(scored_resp)[sapply(scored_resp, is.numeric)], "SSID")
+  resp_matrix <- as.matrix(scored_resp[, item_cols, drop = FALSE])
+  theta_est   <- as.numeric(
+    mirt::fscores(mirt_model, response.pattern = resp_matrix, verbose = FALSE)[, "F1"]
+  )
+  persons_df  <- data.frame(theta = theta_est)
+
+  # ── Plot ───────────────────────────────────────────────────────────────────
+  ggplot() +
+    # Person ability histogram (semi-transparent, top half)
+    geom_histogram(
+      data    = persons_df,
+      mapping = aes(x = theta, y = after_stat(count)),
+      binwidth = 0.25,
+      fill    = "steelblue",
+      alpha   = 0.50,
+      colour  = "white"
+    ) +
+    # Item difficulty points on a rug at the bottom
+    # Shape 124 is the ASCII vertical-bar character (|), used as a tick mark.
+    geom_point(
+      data    = items_df,
+      mapping = aes(x = difficulty, y = 0),
+      shape   = 124,
+      size    = 6,
+      colour  = "tomato"
+    ) +
+    ggrepel::geom_text_repel(
+      data    = items_df,
+      mapping = aes(x = difficulty, y = 0, label = item_id),
+      size    = 3,
+      colour  = "tomato",
+      nudge_y = 2,
+      segment.size = 0.3
+    ) +
+    labs(
+      x       = "Logit Scale (\u03b8 / Item Difficulty)",
+      y       = "Number of Students",
+      title   = "Figure 2: Wright Map — Student Ability and Item Difficulty",
+      caption = paste0(
+        "Blue histogram = student ability estimates. ",
+        "Red ticks/labels = item difficulty (b) parameters."
+      )
+    ) +
+    theme_minimal() +
+    theme(plot.caption = element_text(size = 8, hjust = 0))
 }
