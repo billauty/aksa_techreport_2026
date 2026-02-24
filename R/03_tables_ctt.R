@@ -142,6 +142,7 @@ make_table_02_item_stats <- function(scored_data) {
 # Returns a flextable.
 # ------------------------------------------------------------
 make_table_03_reliability <- function(scored_data) {
+  scored_data <- scored_data[, sapply(scored_data, is.numeric), drop = FALSE]
   k <- ncol(scored_data)
   if (k < 2) {
     warning("KR-20 is undefined for fewer than 2 items; returning NA.")
@@ -178,6 +179,7 @@ make_table_03_reliability <- function(scored_data) {
 # Returns a flextable.
 # ------------------------------------------------------------
 make_table_04_score_frequencies <- function(scored_data) {
+  scored_data <- scored_data[, sapply(scored_data, is.numeric), drop = FALSE]
   total  <- rowSums(scored_data, na.rm = TRUE)
   n_total <- length(total)
 

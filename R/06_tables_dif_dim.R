@@ -151,7 +151,7 @@ make_table_11_subgroup_reliability <- function(scored_data, demo_data) {
 #   $table  - flextable
 #   $data   - underlying data.frame (for use in make_figure_04_dif_plot)
 # ------------------------------------------------------------
-make_table_12_dif_lord <- function(scored_data, demo_data, group_col, seed = 42) {
+make_table_12_dif_lord <- function(scored_data, demo_data, group_col, table_num = 12L, seed = 42) {
   joined <- dplyr::inner_join(scored_data, demo_data, by = "SSID")
   # Drop rows with missing group information
   joined <- joined[!is.na(joined[[group_col]]), , drop = FALSE]
@@ -190,7 +190,7 @@ make_table_12_dif_lord <- function(scored_data, demo_data, group_col, seed = 42)
     align(align = "right", part = "body") |>
     align(j = "Item", align = "left", part = "body") |>
     align(align = "center", part = "header") |>
-    set_caption(caption = paste0("Table 12: DIF Analysis \u2014 Lord\u2019s Delta by ", group_col)) |>
+    set_caption(caption = paste0("Table ", table_num, ": DIF Analysis \u2014 Lord\u2019s Delta by ", group_col)) |>
     autofit()
 
   list(table = ft, data = dif_df)
@@ -208,7 +208,7 @@ make_table_12_dif_lord <- function(scored_data, demo_data, group_col, seed = 42)
 #
 # Returns a ggplot.
 # ------------------------------------------------------------
-make_figure_04_dif_plot <- function(dif_data, group_name) {
+make_figure_04_dif_plot <- function(dif_data, group_name, fig_num = 4L) {
   # Preserve original item order on the y-axis
   dif_data$Item <- factor(dif_data$Item, levels = rev(dif_data$Item))
 
@@ -227,9 +227,193 @@ make_figure_04_dif_plot <- function(dif_data, group_name) {
     labs(
       x     = "\u0394Lord (Lord\u2019s Delta)",
       y     = "Item",
-      title = paste0("Figure 4: DIF Magnitude and Direction \u2014 ", group_name),
+      title = paste0("Figure ", fig_num, ": DIF Magnitude and Direction \u2014 ", group_name),
       caption = "Dashed line at \u0394 = 0. Items coloured by ETS DIF classification."
     ) +
     theme_minimal() +
     theme(legend.position = "bottom")
+}
+
+# ------------------------------------------------------------
+# Table 9 — Item Infit and Outfit Statistics
+# Reports per-item Infit and Outfit mean-square (MSQ) statistics
+# from a fitted Rasch/mirt model.  Values near 1.0 indicate
+# good fit; values above 1.5 suggest underfitting.
+#
+# Arguments:
+#   mirt_model  - fitted mirt model object (SingleGroupClass)
+#
+# Returns a flextable.
+# ------------------------------------------------------------
+make_table_09_item_fit <- function(mirt_model) {
+  # fit_statistics = "infit" is the mirt API argument; despite the name, mirt
+  # returns BOTH infit and outfit mean-square statistics in this call.
+  fit_stats <- mirt::itemfit(mirt_model, fit_statistics = "infit", na.rm = TRUE)
+
+  # Normalise column names — they vary slightly across mirt versions.
+  # mirt::itemfit() always places item identifiers in a column named "item".
+  nm         <- names(fit_stats)
+  infit_col  <- if ("infit"  %in% nm) "infit"  else {
+    matched <- grep("infit",  nm, ignore.case = TRUE, value = TRUE)
+    if (length(matched) == 0) stop("Could not locate infit column in mirt::itemfit() output.")
+    matched[1]
+  }
+  outfit_col <- if ("outfit" %in% nm) "outfit" else {
+    matched <- grep("outfit", nm, ignore.case = TRUE, value = TRUE)
+    if (length(matched) == 0) stop("Could not locate outfit column in mirt::itemfit() output.")
+    matched[1]
+  }
+
+  fit_df <- data.frame(
+    Item   = as.character(fit_stats[["item"]]),
+    Infit  = as.numeric(fit_stats[[infit_col]]),
+    Outfit = as.numeric(fit_stats[[outfit_col]]),
+    stringsAsFactors = FALSE
+  )
+
+  big_b <- fp_border(color = "black", width = 1.5)
+  std_b <- fp_border(color = "black", width = 1)
+
+  ft <- flextable(fit_df) |>
+    set_header_labels(Item = "Item", Infit = "Infit MSQ", Outfit = "Outfit MSQ") |>
+    colformat_double(j = c("Infit", "Outfit"), digits = 3) |>
+    border_remove() |>
+    hline_top(part = "header", border = big_b) |>
+    hline_bottom(part = "header", border = std_b) |>
+    hline_bottom(part = "body", border = big_b) |>
+    fontsize(size = 10, part = "all") |>
+    align(align = "center", part = "all") |>
+    align(j = "Item", align = "left", part = "all") |>
+    set_caption(caption = "Table 9: Item Infit and Outfit Statistics",
+                fp_p = fp_par(text.align = "left")) |>
+    autofit()
+
+  ft
+}
+
+# ------------------------------------------------------------
+# Figure 1 — Item Infit and Outfit Statistics
+# Plots Infit and Outfit MSQ values for each item, with
+# reference lines at 0.5 and 1.5 marking the acceptable range.
+#
+# Arguments:
+#   mirt_model  - fitted mirt model object (SingleGroupClass)
+#
+# Returns a ggplot.
+# ------------------------------------------------------------
+make_figure_01_item_fit <- function(mirt_model) {
+  # fit_statistics = "infit" is the mirt API argument; despite the name, mirt
+  # returns BOTH infit and outfit mean-square statistics in this call.
+  fit_stats <- mirt::itemfit(mirt_model, fit_statistics = "infit", na.rm = TRUE)
+
+  # Normalise column names — they vary slightly across mirt versions.
+  # mirt::itemfit() always places item identifiers in a column named "item".
+  nm         <- names(fit_stats)
+  infit_col  <- if ("infit"  %in% nm) "infit"  else {
+    matched <- grep("infit",  nm, ignore.case = TRUE, value = TRUE)
+    if (length(matched) == 0) stop("Could not locate infit column in mirt::itemfit() output.")
+    matched[1]
+  }
+  outfit_col <- if ("outfit" %in% nm) "outfit" else {
+    matched <- grep("outfit", nm, ignore.case = TRUE, value = TRUE)
+    if (length(matched) == 0) stop("Could not locate outfit column in mirt::itemfit() output.")
+    matched[1]
+  }
+
+  plot_df <- data.frame(
+    item   = as.character(fit_stats[["item"]]),
+    Infit  = as.numeric(fit_stats[[infit_col]]),
+    Outfit = as.numeric(fit_stats[[outfit_col]]),
+    stringsAsFactors = FALSE
+  )
+
+  long_df <- tidyr::pivot_longer(
+    plot_df,
+    cols      = c("Infit", "Outfit"),
+    names_to  = "Statistic",
+    values_to = "Value"
+  )
+
+  # Order items by overall mean fit for a tidy display
+  item_order <- plot_df$item[order(rowMeans(plot_df[, c("Infit", "Outfit")]))]
+  long_df$item <- factor(long_df$item, levels = item_order)
+
+  ggplot(long_df, aes(x = Value, y = item, colour = Statistic, shape = Statistic)) +
+    geom_vline(xintercept = 1,             colour = "grey30", linewidth = 0.6) +
+    geom_vline(xintercept = c(0.5, 1.5),  linetype = "dashed",
+               colour = "grey50", linewidth = 0.5) +
+    geom_point(size = 3) +
+    scale_colour_manual(values = c(Infit = "#2166AC", Outfit = "#D6604D")) +
+    labs(
+      x       = "Mean-Square Fit Statistic",
+      y       = NULL,
+      title   = "Figure 1: Item Infit and Outfit Statistics",
+      caption = paste0(
+        "Solid line at 1.0 = perfect fit. ",
+        "Dashed lines at 0.5 and 1.5 mark the acceptable range."
+      )
+    ) +
+    theme_minimal() +
+    theme(
+      legend.position = "bottom",
+      plot.caption    = element_text(size = 8, hjust = 0)
+    )
+}
+
+# ------------------------------------------------------------
+# Table 13 — DIF Analysis: Lord's Delta (Group 2 — IEP)
+# Thin wrapper around make_table_12_dif_lord() that uses table
+# number 13 in the caption.  Default group_col is "IEP".
+#
+# Arguments:  see make_table_12_dif_lord().
+# Returns a named list: $table (flextable), $data (data.frame).
+# ------------------------------------------------------------
+make_table_13_dif_lord <- function(scored_data, demo_data,
+                                   group_col = "IEP", seed = 42) {
+  make_table_12_dif_lord(scored_data, demo_data,
+                         group_col = group_col, table_num = 13L, seed = seed)
+}
+
+# ------------------------------------------------------------
+# Table 14 — DIF Analysis: Lord's Delta (Group 3 — LEP)
+# Thin wrapper around make_table_12_dif_lord() that uses table
+# number 14 in the caption.  Default group_col is "LEP".
+#
+# Arguments:  see make_table_12_dif_lord().
+# Returns a named list: $table (flextable), $data (data.frame).
+# ------------------------------------------------------------
+make_table_14_dif_lord <- function(scored_data, demo_data,
+                                   group_col = "LEP", seed = 42) {
+  make_table_12_dif_lord(scored_data, demo_data,
+                         group_col = group_col, table_num = 14L, seed = seed)
+}
+
+# ------------------------------------------------------------
+# Figure 5 — DIF Magnitude and Direction (Group 2 — IEP)
+# Thin wrapper around make_figure_04_dif_plot() that sets the
+# figure number to 5.
+#
+# Arguments:
+#   dif_data    - data.frame from make_table_13_dif_lord()$data
+#   group_name  - character label for the focal group (default: "IEP")
+#
+# Returns a ggplot.
+# ------------------------------------------------------------
+make_figure_05_dif_plot <- function(dif_data, group_name = "IEP") {
+  make_figure_04_dif_plot(dif_data, group_name = group_name, fig_num = 5L)
+}
+
+# ------------------------------------------------------------
+# Figure 6 — DIF Magnitude and Direction (Group 3 — LEP)
+# Thin wrapper around make_figure_04_dif_plot() that sets the
+# figure number to 6.
+#
+# Arguments:
+#   dif_data    - data.frame from make_table_14_dif_lord()$data
+#   group_name  - character label for the focal group (default: "LEP")
+#
+# Returns a ggplot.
+# ------------------------------------------------------------
+make_figure_06_dif_plot <- function(dif_data, group_name = "LEP") {
+  make_figure_04_dif_plot(dif_data, group_name = group_name, fig_num = 6L)
 }
