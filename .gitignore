@@ -2,3 +2,8 @@
 .Rhistory
 .RData
 .Ruserdata
+_targets/
+data/raw/*
+!data/raw/.gitkeep
+data/processed/*
+!data/processed/.gitkeep
