@@ -218,69 +218,77 @@ make_table_04_score_frequencies <- function(scored_data) {
 #   raw_responses  - data.frame of chosen options (e.g., A, B, C, D),
 #                    one row per student, one column per item.
 #   answer_key     - named character vector (names = item names,
-#                    values = correct option) OR a one-row data.frame
-#                    with item names as column names.
+#                    values = correct option)
 #
 # Returns a flextable.
 # ------------------------------------------------------------
 make_table_05_distractor_analysis <- function(raw_responses, answer_key) {
-  # Normalise answer_key to a named character vector
+  # Force answer_key to be a clean named character vector
+  # (handles tibbles, lists, factors, etc. coming from data ingestion)
   if (is.data.frame(answer_key)) {
     key_vec <- unlist(answer_key[1, ], use.names = TRUE)
-  } else if (is.character(answer_key) || is.factor(answer_key)) {
-    key_vec <- as.character(answer_key)
-    if (is.null(names(key_vec))) {
-      stop("answer_key must be a named vector with item names, or a data.frame.")
-    }
   } else {
-    stop("answer_key must be a named character vector or a data.frame with one row per item.")
+    key_vec <- as.character(answer_key)
+    names(key_vec) <- names(answer_key)
   }
-
+  
+  if (is.null(names(key_vec)) || any(names(key_vec) == "")) {
+    # If the keys lost their names during pipeline transit, assume they match
+    # the exact order of the provided raw response columns
+    names(key_vec) <- names(raw_responses)
+  }
+  
   # Build a scored (0/1) matrix for pBis and discrimination indices
+  # Force everything to lowercase for case-insensitive matching
   scored <- as.data.frame(
-    mapply(function(resp, correct) as.integer(resp == correct),
-           raw_responses, key_vec[names(raw_responses)],
-           SIMPLIFY = FALSE)
+    mapply(function(resp, correct) {
+      as.integer(tolower(as.character(resp)) == tolower(as.character(correct)))
+    },
+    raw_responses, key_vec[names(raw_responses)],
+    SIMPLIFY = FALSE)
   )
   total_score <- rowSums(scored, na.rm = TRUE)
-
+  
   # Determine group boundaries (lower 27 %, upper 27 %)
   n_total  <- nrow(raw_responses)
   # type = 1 (inverse empirical CDF) matches the standard psychometric convention
   # for defining the lower and upper 27% groups used in item discrimination indices.
-  cut_low  <- quantile(total_score, probs = 0.27, type = 1)
-  cut_high <- quantile(total_score, probs = 0.73, type = 1)
+  cut_low  <- quantile(total_score, probs = 0.27, type = 1, na.rm = TRUE)
+  cut_high <- quantile(total_score, probs = 0.73, type = 1, na.rm = TRUE)
   grp_lower <- total_score <= cut_low
   grp_upper <- total_score >= cut_high
   grp_mid   <- !grp_lower & !grp_upper
-
+  
   rows <- lapply(names(raw_responses), function(item) {
     responses <- raw_responses[[item]]
     correct   <- key_vec[[item]]
     options   <- sort(unique(na.omit(responses)))
-
+    
+    # If no options exist, return a dummy row so flextable doesn't crash
+    if (length(options) == 0) return(NULL)
+    
     lapply(options, function(opt) {
       chose <- !is.na(responses) & responses == opt
-
+      
       n_opt   <- sum(chose)
       resP    <- n_opt / n_total
-
+      
       # Point-biserial correlation between choosing this option and total score
       x <- as.numeric(chose)
-      if (sd(x) == 0 || sd(total_score) == 0) {
+      if (sd(x, na.rm = TRUE) == 0 || sd(total_score, na.rm = TRUE) == 0) {
         pbis <- NA_real_
       } else {
         pbis <- cor(x, total_score, use = "complete.obs")
       }
-
-      lower_prop <- if (sum(grp_lower) > 0) mean(chose[grp_lower]) else NA_real_
-      upper_prop <- if (sum(grp_upper) > 0) mean(chose[grp_upper]) else NA_real_
-      mid_prop   <- if (sum(grp_mid)   > 0) mean(chose[grp_mid])   else NA_real_
+      
+      lower_prop <- if (sum(grp_lower, na.rm = TRUE) > 0) mean(chose[grp_lower], na.rm = TRUE) else NA_real_
+      upper_prop <- if (sum(grp_upper, na.rm = TRUE) > 0) mean(chose[grp_upper], na.rm = TRUE) else NA_real_
+      mid_prop   <- if (sum(grp_mid, na.rm = TRUE)   > 0) mean(chose[grp_mid], na.rm = TRUE)   else NA_real_
       discrim    <- if (!is.na(upper_prop) && !is.na(lower_prop)) upper_prop - lower_prop else NA_real_
-
-      # Flag correct answer
-      option_label <- if (opt == correct) paste0(opt, "*") else opt
-
+      
+      # Flag correct answer (case insensitive match)
+      option_label <- if (tolower(as.character(opt)) == tolower(as.character(correct))) paste0(opt, "*") else as.character(opt)
+      
       data.frame(
         Item    = item,
         Option  = option_label,
@@ -295,30 +303,33 @@ make_table_05_distractor_analysis <- function(raw_responses, answer_key) {
       )
     })
   })
-
+  
   distractor_df <- do.call(rbind, do.call(c, rows))
-
+  
+  if (is.null(distractor_df) || nrow(distractor_df) == 0) {
+    # Return placeholder table if data is empty
+    return(flextable(data.frame(Message = "No distractor data available for this test.")))
+  }
+  
   ft <- flextable(distractor_df) |>
     set_header_labels(
       Item    = "Item",
       Option  = "Option",
       n       = "n",
-      resP    = "Prop.",
-      pBis    = "pBis",
-      discrim = "Discrim.",
+      resP    = "p-value",
+      pBis    = "r-pbis",
+      discrim = "Discrim",
       lower   = "Lower 27%",
-      mid66   = "Mid 66%",
+      mid66   = "Middle",
       upper   = "Upper 27%"
     ) |>
     colformat_int(j = "n") |>
-    colformat_double(j = c("resP", "pBis", "discrim", "lower", "mid66", "upper"),
-                     digits = 2) |>
+    colformat_double(j = c("resP", "pBis", "discrim", "lower", "mid66", "upper"), digits = 2) |>
     theme_vanilla() |>
-    align(align = "right", part = "body") |>
+    align(align = "center", part = "all") |>
     align(j = c("Item", "Option"), align = "left", part = "body") |>
-    align(align = "center", part = "header") |>
-    set_caption(caption = "Table 5: Distractor Analysis (* = correct response)") |>
+    set_caption(caption = "Table 5: Distractor Analysis") |>
     autofit()
-
+  
   ft
 }
