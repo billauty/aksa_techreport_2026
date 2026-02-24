@@ -1,18 +1,237 @@
-# Build tables and figures for one test from model results.
-# model_results: list returned by fit_models()
-# Returns a list containing:
-#   - ft: a flextable object
-#   - fig: a ggplot object
-#   - alt_text: character string describing the figure
+# Build all tables and figures for one test from model results.
+#
+# Arguments:
+#   model_results  - list returned by fit_models(); expected to contain at
+#                    minimum a fitted mirt model object, CTT item statistics,
+#                    scored response matrices, and examinee metadata.
+#
+# Returns a named list with two elements:
+#   $tables  - named list of flextable objects (tbl_01 … tbl_17)
+#   $figures - named list of lists, each with $plot (ggplot) and $alt_text
+#              (character); fig_01 … fig_11
 build_test_content <- function(model_results) {
-  # TODO: implement table and figure generation
-  ft <- flextable::flextable(data.frame())
 
-  fig <- ggplot2::ggplot()
+  # ── TABLES ────────────────────────────────────────────────────────────────
+
+  # Table 1 — Test Administration Summary
+  # Inputs : scored_data columns: grade, content_area, form_id
+  # Package: flextable (summary from dplyr::count())
+  # TODO: implement tbl_01
+  tbl_01 <- flextable::flextable(data.frame())
+
+  # Table 2 — Examinee Demographics
+  # Inputs : scored_data demographic flag columns
+  # Package: flextable (formatted from dplyr::summarise())
+  # TODO: implement tbl_02
+  tbl_02 <- flextable::flextable(data.frame())
+
+  # Table 3 — Score Descriptive Statistics
+  # Inputs : scored_data$scale_score grouped by test_id
+  # Package: flextable; descriptives via psych::describe()
+  # TODO: implement tbl_03
+  tbl_03 <- flextable::flextable(data.frame())
+
+  # Table 4 — Score Descriptive Statistics by Subgroup
+  # Inputs : scored_data$scale_score x demographic flags
+  # Package: flextable (from dplyr::group_by() + summarise())
+  # TODO: implement tbl_04
+  tbl_04 <- flextable::flextable(data.frame())
+
+  # Table 5 — Internal Consistency Reliability
+  # Inputs : item-level scored response matrix
+  # Package: CTT::reliability() for alpha and SEM; flextable
+  # TODO: implement tbl_05
+  tbl_05 <- flextable::flextable(data.frame())
+
+  # Table 6 — Conditional Standard Error of Measurement
+  # Inputs : item-level response matrix
+  # Package: CTT::cSEM() for binomial SEM; flextable
+  # TODO: implement tbl_06
+  tbl_06 <- flextable::flextable(data.frame())
+
+  # Table 7 — Item Difficulty Statistics (CTT)
+  # Inputs : item-level binary response matrix
+  # Package: CTT::itemAnalysis() -> flextable
+  # TODO: implement tbl_07
+  tbl_07 <- flextable::flextable(data.frame())
+
+  # Table 8 — Item Discrimination Statistics (CTT)
+  # Inputs : item-level binary response matrix
+  # Package: CTT::itemAnalysis() -> flextable
+  # TODO: implement tbl_08
+  tbl_08 <- flextable::flextable(data.frame())
+
+  # Table 9 — Distractor Analysis
+  # Inputs : raw (unscored) nominal response matrix from raw_data
+  # Package: CTT::distractorAnalysis() -> flextable
+  # TODO: implement tbl_09
+  tbl_09 <- flextable::flextable(data.frame())
+
+  # Table 10 — IRT Item Parameter Estimates
+  # Inputs : model_results mirt model object
+  # Package: mirt::coef() -> flextable
+  # TODO: implement tbl_10
+  tbl_10 <- flextable::flextable(data.frame())
+
+  # Table 11 — IRT Model-Data Fit Statistics
+  # Inputs : model_results mirt model object
+  # Package: mirt::itemfit() -> flextable
+  # TODO: implement tbl_11
+  tbl_11 <- flextable::flextable(data.frame())
+
+  # Table 12 — Differential Item Functioning (DIF) Summary
+  # Inputs : item-level responses + focal/reference group indicator
+  # Package: difR::difMH() or mirt::DIF() -> flextable
+  # TODO: implement tbl_12
+  tbl_12 <- flextable::flextable(data.frame())
+
+  # Table 13 — Raw-to-Scale Score Conversion Table
+  # Inputs : equating/scaling parameters from model_results; score range metadata
+  # Package: mirt::fscores() or linear equating; flextable
+  # TODO: implement tbl_13
+  tbl_13 <- flextable::flextable(data.frame())
+
+  # Table 14 — Performance Level Cut Scores
+  # Inputs : external cut-score specifications + scale parameters from model_results
+  # Package: flextable
+  # TODO: implement tbl_14
+  tbl_14 <- flextable::flextable(data.frame())
+
+  # Table 15 — Classification Accuracy and Consistency
+  # Inputs : IRT ability estimates and cut scores from model_results
+  # Package: mirt::classify() or custom computation; flextable
+  # TODO: implement tbl_15
+  tbl_15 <- flextable::flextable(data.frame())
+
+  # Table 16 — Content-Domain (Subscore) Statistics
+  # Inputs : scored_data with item-to-strand mapping; item-level responses
+  # Package: CTT::reliability() per strand subset; flextable
+  # TODO: implement tbl_16
+  tbl_16 <- flextable::flextable(data.frame())
+
+  # Table 17 — Item Pool Summary
+  # Inputs : item metadata (strand, Depth of Knowledge level) joined to scored_data
+  # Package: flextable (from dplyr::count(strand, dok_level))
+  # TODO: implement tbl_17
+  tbl_17 <- flextable::flextable(data.frame())
+
+  # ── FIGURES ───────────────────────────────────────────────────────────────
+
+  # Figure 1 — Scale Score Distribution Histogram
+  # Inputs : scored_data$scale_score grouped by test_id
+  # Package: ggplot2 (geom_histogram() + stat_function())
+  # TODO: implement fig_01
+  fig_01 <- list(
+    plot     = ggplot2::ggplot(),
+    alt_text = "Histogram of scale scores with normal-curve overlay."
+  )
+
+  # Figure 2 — Score Distribution by Performance Level
+  # Inputs : scored_data$performance_level
+  # Package: ggplot2 (geom_bar(position = "fill"))
+  # TODO: implement fig_02
+  fig_02 <- list(
+    plot     = ggplot2::ggplot(),
+    alt_text = "Bar chart showing percentage of examinees at each performance level."
+  )
+
+  # Figure 3 — Item Difficulty Distribution
+  # Inputs : p-values from CTT::itemAnalysis()
+  # Package: ggplot2
+  # TODO: implement fig_03
+  fig_03 <- list(
+    plot     = ggplot2::ggplot(),
+    alt_text = "Histogram of item p-values with reference lines at 0.2 and 0.8."
+  )
+
+  # Figure 4 — Item Discrimination Distribution
+  # Inputs : point-biserial correlations from CTT::itemAnalysis()
+  # Package: ggplot2
+  # TODO: implement fig_04
+  fig_04 <- list(
+    plot     = ggplot2::ggplot(),
+    alt_text = "Histogram of item point-biserial correlations with reference line at 0.2."
+  )
+
+  # Figure 5 — Item Characteristic Curves (ICC)
+  # Inputs : fitted mirt model from model_results
+  # Package: mirt::probtrace() -> ggplot2
+  # TODO: implement fig_05
+  fig_05 <- list(
+    plot     = ggplot2::ggplot(),
+    alt_text = "Item characteristic curves showing probability of correct response across the theta range."
+  )
+
+  # Figure 6 — Test Information Function (TIF)
+  # Inputs : fitted mirt model from model_results
+  # Package: mirt::testinfo() -> ggplot2
+  # TODO: implement fig_06
+  fig_06 <- list(
+    plot     = ggplot2::ggplot(),
+    alt_text = "Test information function and conditional SEM across the theta range."
+  )
+
+  # Figure 7 — Person-Item Map (Wright Map)
+  # Inputs : mirt::fscores() ability estimates and item b parameters
+  # Package: WrightMap::wrightMap()
+  # TODO: implement fig_07
+  fig_07 <- list(
+    plot     = ggplot2::ggplot(),
+    alt_text = "Wright Map showing side-by-side distributions of person ability and item difficulty."
+  )
+
+  # Figure 8 — DIF Item Scatterplot
+  # Inputs : group-specific p-values or b parameters + DIF flag from tbl_12
+  # Package: ggplot2 (geom_point() + ggrepel::geom_label_repel())
+  # TODO: implement fig_08
+  fig_08 <- list(
+    plot     = ggplot2::ggplot(),
+    alt_text = "Scatterplot of item difficulty by group with DIF-flagged items annotated."
+  )
+
+  # Figure 9 — Scree Plot / Parallel Analysis
+  # Inputs : item-level scored response matrix
+  # Package: psych::fa.parallel() or ggplot2 with base::eigen()
+  # TODO: implement fig_09
+  fig_09 <- list(
+    plot     = ggplot2::ggplot(),
+    alt_text = "Scree plot with parallel-analysis reference line for dimensionality assessment."
+  )
+
+  # Figure 10 — Expected Score Curve
+  # Inputs : fitted mirt model from model_results
+  # Package: mirt::expected.test() -> ggplot2
+  # TODO: implement fig_10
+  fig_10 <- list(
+    plot     = ggplot2::ggplot(),
+    alt_text = "Expected total test score as a function of theta."
+  )
+
+  # Figure 11 — Subgroup Score Distribution Comparison
+  # Inputs : scored_data$scale_score and demographic flag columns
+  # Package: ggplot2 (geom_density() + geom_vline())
+  # TODO: implement fig_11
+  fig_11 <- list(
+    plot     = ggplot2::ggplot(),
+    alt_text = "Overlapping kernel-density plots of scale scores by demographic subgroup."
+  )
+
+  # ── RETURN ────────────────────────────────────────────────────────────────
 
   list(
-    ft       = ft,
-    fig      = fig,
-    alt_text = "Placeholder figure"
+    tables = list(
+      tbl_01 = tbl_01, tbl_02 = tbl_02, tbl_03 = tbl_03,
+      tbl_04 = tbl_04, tbl_05 = tbl_05, tbl_06 = tbl_06,
+      tbl_07 = tbl_07, tbl_08 = tbl_08, tbl_09 = tbl_09,
+      tbl_10 = tbl_10, tbl_11 = tbl_11, tbl_12 = tbl_12,
+      tbl_13 = tbl_13, tbl_14 = tbl_14, tbl_15 = tbl_15,
+      tbl_16 = tbl_16, tbl_17 = tbl_17
+    ),
+    figures = list(
+      fig_01 = fig_01, fig_02 = fig_02, fig_03 = fig_03,
+      fig_04 = fig_04, fig_05 = fig_05, fig_06 = fig_06,
+      fig_07 = fig_07, fig_08 = fig_08, fig_09 = fig_09,
+      fig_10 = fig_10, fig_11 = fig_11
+    )
   )
 }
