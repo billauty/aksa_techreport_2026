@@ -1,0 +1,12 @@
+---
+title: "AKSA Technical Yearbook 2026"
+format:
+  docx:
+    toc: true
+---
+
+## Introduction
+
+<!-- TODO: Replace this placeholder with the full introduction text. -->
+
+This document will serve as the introduction to the AKSA Technical Yearbook 2026.
