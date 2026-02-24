@@ -7,10 +7,20 @@
 # Returns a list with elements: calib, responses, keys, cut_scores.
 load_all_data <- function(data_dir = "data") {
   
-  # 1. Ingest and transform the SAS keys into a named list of vectors
-  # Groups by Subject and grade (e.g., "MA_03") 
-  raw_keys <- haven::read_sas(file.path(data_dir, "raw/alt_response_key.sas7bdat"))
+  # 1. Ingest the SAS keys
+  raw_keys <- haven::read_sas(file.path(data_dir, "keys/alt_response_key.sas7bdat"))
   
+  # 2. Fix WR subjects: Change 'WR' to 'EM' for Tasks A1 through C5
+  # This creates a vector of exactly A1-A5, B1-B5, and C1-C5
+  target_tasks <- c(paste0("A", 1:5), paste0("B", 1:5), paste0("C", 1:5))
+  
+  raw_keys$Subject <- ifelse(
+    raw_keys$Subject == "WR" & raw_keys$Task %in% target_tasks,
+    "EM",
+    raw_keys$Subject
+  )
+  
+  # 3. Transform into a named list of vectors grouped by Subject_grade
   keys_list <- split(raw_keys, paste(raw_keys$Subject, raw_keys$grade, sep = "_")) |> 
     lapply(function(df) {
       # Extract the 'Key' column and name the elements using the 'Task' column
