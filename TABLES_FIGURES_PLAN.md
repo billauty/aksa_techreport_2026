@@ -1,261 +1,233 @@
 # Tables & Figures Plan — AKSA 2026 Psychometric Technical Report
 
-This document tracks the 17 tables and 11 figures to be implemented in
-`R/03_tables_figs.R` as part of the `build_test_content()` pipeline.
-Each entry describes the required data inputs and the recommended R
-package or approach.
+## Tables
+
+### Table 1: CTT Score Summary
+
+This table reports the number of tests scores, the mean total raw score, the standard deviation, the minimum and maximum observed scores.
 
 ---
 
-## Tables (17)
+### Table 2: CTT Item Statistics
 
-### Table 1 — Test Administration Summary
-**Description:** Sample sizes (N) by grade, content area, and test form.  
-**Inputs:** `scored_data` — one row per examinee; columns `grade`,
-`content_area`, `form_id`.  
-**Package:** `flextable` (summary table from `dplyr::count()`).
+This table shows Classical Test Theory (CTT) statistics for each test item:
 
----
-
-### Table 2 — Examinee Demographics
-**Description:** Counts and percentages by race/ethnicity, gender,
-IEP status, and ELL status.  
-**Inputs:** `scored_data` — demographic flag columns.  
-**Package:** `flextable` (formatted from `dplyr::summarise()`).
+- **n:** Number of students who answered the item
+- **mean:** Proportion of students who answered correctly (item difficulty, 0–1 scale)
+- **sd:** Standard deviation of responses
+- **median:** Middle value (0.0, 0.5, or 1.0 for binary items)
+- **min/max/range:** Always 0, 1, 1 for dichotomous items
+- **skew:** Distribution symmetry (negative = more correct responses; positive = fewer correct)
+- **kurtosis:** All negative values (~-2) indicate flat, uniform distributions typical of binary items
 
 ---
 
-### Table 3 — Score Descriptive Statistics
-**Description:** Mean, SD, median, min, max, skewness, and kurtosis of
-scale scores per test.  
-**Inputs:** `scored_data` — column `scale_score` grouped by `test_id`.  
-**Package:** `flextable`; descriptives via base R or `psych::describe()`.
+### Table 3: Reliability
+
+KR-20 (Kuder-Richardson Formula 20) is a measure of internal consistency reliability for tests with dichotomous items (right/wrong, 0/1 scoring). The reliability value is reported.
 
 ---
 
-### Table 4 — Score Descriptive Statistics by Subgroup
-**Description:** Mean and SD of scale scores broken out by each
-demographic subgroup.  
-**Inputs:** `scored_data` — `scale_score` × demographic flags.  
-**Package:** `flextable` (pivoted from `dplyr::group_by()` + `summarise()`).
+### Table 4: Raw Score Frequencies
+
+Observed test scores, based on the sum of correct responses, are reported along with the percent of all scores and the cumulative percent.
 
 ---
 
-### Table 5 — Internal Consistency Reliability
-**Description:** Cronbach's alpha and SEM for each test form.  
-**Inputs:** Item-level scored response matrix from `scored_data`.  
-**Package:** `CTT::reliability()` for alpha and SEM; `flextable`.
+### Table 5: Distractor Analysis
+
+This table lists item responses by response option, with the correct response indicated by an asterisk (*). For each response, the following statistics are reported:
+
+- **n:** number of students selecting the response
+- **resP:** proportion of students selecting the response
+- **pBis:** point-biserial correlation between the response and the total score with the item removed. This value is expected to be highest for the correct response.
+- **discrim:** discrimination index, defined as the difference between upper and lower score groups. As with pBis, higher values are expected for the correct response.
+- **lower, mid66, upper:** proportions of students in the lowest, middle, and highest third score groups selecting the response.
 
 ---
 
-### Table 6 — Conditional Standard Error of Measurement
-**Description:** SEM at each raw-score point across the score scale.  
-**Inputs:** Item-level response matrix.  
-**Package:** `CTT::cSEM()` for binomial SEM; `flextable`.
+### Table 6: IRT Model Summary
+
+This table presents the Item Response Theory (IRT) model fit statistics for the grade 10 test:
+
+- **grade:** Grade level of the test
+- **n_items:** Number of items on the test
+- **n_persons:** Number of students who took the test
+- **logLik:** Log-likelihood value indicating model fit to the data
+- **AIC:** Akaike Information Criterion — lower values indicate better model fit
+- **BIC:** Bayesian Information Criterion — lower values indicate better model fit, with stronger penalty for model complexity
+
+These statistics provide goodness-of-fit measures for the IRT model and can be used to compare different models or assess model adequacy.
 
 ---
 
-### Table 7 — Item Difficulty Statistics (CTT)
-**Description:** Proportion-correct (*p*-value) and item mean for every
-scored item.  
-**Inputs:** Item-level binary response matrix.  
-**Package:** `CTT::itemAnalysis()` → `flextable`.
+### Table 7: Raw Score to Theta Conversion
+
+The Rasch model produces a single ability estimate (theta) for each raw score. Because the raw score is a sufficient statistic, this table may be used to convert raw scores to theta values. Theta is reported in logit units and centered at zero. An adequate range of theta values indicates good measurement coverage. Theta values are linearly transformed to the reporting scale used by the state. The standard error of measurement is reported for each raw score.
 
 ---
 
-### Table 8 — Item Discrimination Statistics (CTT)
-**Description:** Point-biserial correlation (*r*-pbis) and corrected
-item-total correlation for every item.  
-**Inputs:** Item-level binary response matrix.  
-**Package:** `CTT::itemAnalysis()` → `flextable`.
+### Table 8: IRT Item Parameters
+
+This table presents Item Response Theory (IRT) parameters for each test item using a Rasch model:
+
+- **item_id:** Item identifier (A1–F5)
+- **a:** Discrimination parameter — fixed at 1 for all items in the Rasch model
+- **b:** Difficulty parameter — the ability level at which a student has a 50% probability of answering correctly (measured on the logit scale)
+- **SE_b:** Standard error of the difficulty parameter estimate, indicating precision of the estimate
 
 ---
 
-### Table 9 — Distractor Analysis
-**Description:** Response frequency and percentage for each option
-(A/B/C/D) per item, including point-biserial per option.  
-**Inputs:** Raw (unscored) response matrix with nominal option codes from
-`raw_data`.  
-**Package:** `CTT::distractorAnalysis()` → `flextable`.
+### Table 9: Item Infit and Outfit Statistics
+
+This table reports Infit and Outfit mean-square statistics for each item. Values near 1.0 indicate good fit to the Rasch model. Mean-square values below 1.0 indicate overfit, while values above 1.0 indicate underfit. Values above 2.0 suggest distortion of the measurement model. Infit is more sensitive to responses near a student's ability level, while Outfit is more sensitive to unexpected responses far from a student's estimated ability.
 
 ---
 
-### Table 10 — IRT Item Parameter Estimates
-**Description:** Estimated difficulty (*b*), discrimination (*a*), and
-guessing (*c*) parameters (3PL) or Rasch *b* for each item.  
-**Inputs:** `model_results` — `mirt` model object.  
-**Package:** `mirt::coef()` → `flextable`.
+## Rasch Model Unidimensionality
+
+### Table 10: Summary of Yen's Q3 Residual Correlations
+
+This table summarizes the distribution of Yen's Q3 residual correlations to assess local independence:
+
+- **Statistic:** Type of summary statistic reported
+- **Value:** Corresponding value for each statistic
+- **Maximum Q3:** Largest residual correlation observed
+- **Mean Q3:** Average residual correlation across all item pairs
+- **Proportion |Q3| > .20:** Proportion of absolute residual correlations exceeding 0.20
 
 ---
 
-### Table 11 — IRT Model-Data Fit Statistics
-**Description:** Item-level fit indices (S-X² statistic, *p*-value,
-RMSEA) from the fitted IRT model.  
-**Inputs:** `model_results` — `mirt` model object.  
-**Package:** `mirt::itemfit()` → `flextable`.
+### Table 11: Reliability
+
+Reliability is reported as a function of the variance of theta and the squared standard error of measurement. Reliability estimates are provided for all students and for subgroups with sufficient sample sizes. Values near or above 0.70 are generally considered acceptable.
 
 ---
 
-### Table 12 — Differential Item Functioning (DIF) Summary
-**Description:** Mantel-Haenszel Δ and logistic-regression DIF
-statistics per item, with flagging codes (A/B/C).  
-**Inputs:** Item-level scored responses + focal/reference group indicator
-from `scored_data`.  
-**Package:** `difR::difMH()` or `mirt::DIF()` → `flextable`.
+## Differential Item Functioning (DIF)
+
+### Tables 12–14
+
+These tables present results of differential item functioning (DIF) analysis examining whether items function differently for demographic subgroups:
+
+- **Item:** Item identifier (A1–F5)
+- **ΔLord:** Lord's chi-square statistic measuring the magnitude of DIF between groups (larger absolute values indicate greater DIF)
+- **ETS Class:** Educational Testing Service classification of DIF magnitude (A = negligible, B = slight to moderate, C = moderate to large)
+- **Flag:** Whether the item is flagged for meaningful DIF (TRUE = statistically significant DIF detected, FALSE = no significant DIF)
 
 ---
 
-### Table 13 — Raw-to-Scale Score Conversion Table
-**Description:** Full lookup table mapping every possible raw score to
-its corresponding scale score and performance level.  
-**Inputs:** Equating/scaling parameters from `model_results`; score
-range metadata.  
-**Package:** Computed via `mirt::fscores()` or linear equating; formatted
-with `flextable`.
+## Classification Accuracy and Consistency
+
+### Table 15: Proficiency Classification Accuracy (Livingston-Lewis)
+
+This table reports the accuracy of proficiency classifications based on the Livingston-Lewis method:
+
+- **Classification:** The proficiency classification categories (e.g., Proficient / Not Proficient)
+- **Accuracy:** The proportion of students correctly classified into each category, accounting for measurement error
+
+Classification accuracy represents the probability that students are correctly assigned to their true proficiency level given the reliability of the test. Higher accuracy values indicate more dependable classification decisions. This statistic helps evaluate whether the test provides sufficiently precise scores for making proficiency determinations.
 
 ---
 
-### Table 14 — Performance Level Cut Scores
-**Description:** Cut scores (raw and scaled) for each performance level
-with their standard errors.  
-**Inputs:** Cut-score specifications (external) + scale parameters from
-`model_results`.  
-**Package:** `flextable`.
+### Table 16: Proficiency Decision Consistency (Livingston-Lewis)
+
+This table presents decision consistency statistics using the Livingston-Lewis method:
+
+- **Contingency Matrix:** A 2×2 table showing the proportions of students classified into each category on hypothetical repeated administrations
+  - True Positive: Proportion classified as proficient on both administrations
+  - False Positive: Proportion classified as proficient on first but not second administration
+  - False Negative: Proportion classified as not proficient on first but proficient on second administration
+  - True Negative: Proportion classified as not proficient on both administrations
+  - Total: Row and column totals representing overall classification proportions
+- **Proportion of Consistent Classifications:** Overall proportion of students who would receive the same classification on repeated testing
+- **Cohen's Kappa:** Agreement statistic correcting for chance agreement (values range from 0 to 1, with higher values indicating better consistency)
+
+Decision consistency evaluates the reliability of proficiency classifications. High consistency indicates students would likely receive the same classification if tested again with a parallel form. Cohen's Kappa provides a more stringent measure by accounting for agreement that would occur by chance alone.
 
 ---
 
-### Table 15 — Classification Accuracy and Consistency
-**Description:** Percent correct classification, kappa, and hit rate for
-each performance level boundary.  
-**Inputs:** `model_results` — IRT ability estimates and cut scores.  
-**Package:** `mirt::classify()` or custom computation; `flextable`.
+### Table 17: NAPD Classification Accuracy (Livingston-Lewis)
+
+This table provides detailed classification accuracy statistics for the four performance levels (NAPD) using the Livingston-Lewis (Multi-Category Extension) method:
+
+**Livingston-Lewis Calculation:**
+
+- The method assumes each student has a "true score" that differs from their observed score due to measurement error.
+- Uses the beta-binomial distribution (hence the betafunctions package) to model the relationship between observed and true scores.
+- Calculates the probability distribution of true scores for each observed score.
+- Determines classification accuracy by comparing observed classifications to estimated true classifications.
+
+**Output Statistics:** For each performance level, calculates:
+
+- **TP (True Positive):** Proportion truly at this level correctly classified here
+- **FP (False Positive):** Proportion not at this level incorrectly classified here
+- **TN (True Negative):** Proportion not at this level correctly classified elsewhere
+- **FN (False Negative):** Proportion truly at this level incorrectly classified elsewhere
+- **Sensitivity:** Same as TP rate
+- **Specificity:** Same as TN rate
+- **p:** Observed proportion classified at this level
+- **c:** Estimated true proportion at this level (corrected for measurement error)
+- **Kappa:** Agreement beyond chance for this level
+
+Note: If a test had an insufficient distribution of scores to estimate all four performance levels, NAPD statistics are not reported.
+
+**Practical Interpretation:**
+
+- High Sensitivity: Test correctly identifies students who truly belong at this level
+- High Specificity: Test correctly excludes students who don't belong at this level
+- Kappa: Reliability of classification at this level beyond chance
 
 ---
 
-### Table 16 — Content-Domain (Subscore) Statistics
-**Description:** N items, mean, SD, and alpha for each content strand or
-reporting category.  
-**Inputs:** `scored_data` with item-to-strand mapping; item-level
-responses.  
-**Package:** `CTT::reliability()` per strand subset; `flextable`.
+## Figures
+
+### Figure 1: Item Infit and Outfit Statistics
+
+This figure displays the Infit and Outfit statistics reported in the item fit table.
 
 ---
 
-### Table 17 — Item Pool Summary
-**Description:** Count of operational items by content strand and
-cognitive-complexity level.  
-**Inputs:** Item metadata file (content strand, Depth of Knowledge level)
-joined to `scored_data`.  
-**Package:** `flextable` (from `dplyr::count(strand, dok_level)`).
+### Figure 2: Comparison of Student Ability and Item Difficulty: Wright Map
+
+This figure displays student ability estimates and item difficulty estimates on the same logit scale. Item difficulties are shown as points, and student abilities are displayed as a histogram. Optimal measurement occurs when student abilities overlap the range of item difficulties.
 
 ---
 
-## Figures (11)
+### Figure 3: Conditional Standard Error of Measurement (CSEM)
 
-### Figure 1 — Scale Score Distribution Histogram
-**Description:** Histogram of scale scores with a normal-curve overlay
-for each test.  
-**Inputs:** `scored_data$scale_score` grouped by `test_id`.  
-**Package:** `ggplot2` (`geom_histogram()` + `stat_function()`).
+This figure shows the conditional standard error of measurement across a wide range of ability values. Lower CSEM values indicate greater measurement precision, particularly in the range where most students score. The Observed Theta Range indicates the student abilities calculated this year.
 
 ---
 
-### Figure 2 — Score Distribution by Performance Level
-**Description:** Stacked or grouped bar chart showing the percentage of
-examinees at each performance level.  
-**Inputs:** `scored_data` — `performance_level` column.  
-**Package:** `ggplot2` (`geom_bar(position = "fill")`).
+## Differential Item Functioning (DIF)
+
+### Figures 4–6
+
+This figure displays the magnitude and direction of differential item functioning (DIF) by gender for each test item:
+
+- **Y-axis:** Item identifiers (A1–F5)
+- **X-axis:** ΔLord (ETS) statistic values, ranging from approximately -1.0 to +0.5
+- **Dots:** Individual item DIF values (gray = negligible DIF, orange/yellow = flagged for meaningful DIF)
+- **Vertical dashed line:** Reference line at 0.0 indicating no DIF
 
 ---
 
-### Figure 3 — Item Difficulty Distribution
-**Description:** Histogram of *p*-values for all operational items,
-with reference lines at 0.2 and 0.8.  
-**Inputs:** Item *p*-values from `CTT::itemAnalysis()`.  
-**Package:** `ggplot2`.
+## Learner Characteristics
+
+### Figures 7–10: Learner Characteristics
+
+Learner Characteristics figures examine the relationship between test scores and teacher-reported characteristics from the Learner Characteristic Inventory. The following characteristics are reported when available:
+
+- Expressive Communication
+- Receptive Language
+- Reading
+- Mathematics
+
+Each figure displays score distributions by category using boxplots. The interquartile range, median, and relative sample sizes are shown. Categories are ordered by increasing expected ability. Horizontal lines above the plots display Wilcoxon test p-values for pairwise comparisons between categories.
 
 ---
 
-### Figure 4 — Item Discrimination Distribution
-**Description:** Histogram of point-biserial correlations for all
-operational items, with a reference line at 0.2.  
-**Inputs:** Item discrimination values from `CTT::itemAnalysis()`.  
-**Package:** `ggplot2`.
+### Figure 11: Anchor Item Drift
 
----
-
-### Figure 5 — Item Characteristic Curves (ICC)
-**Description:** Predicted probability-of-correct-response curves across
-the theta range for a selected set of items.  
-**Inputs:** `model_results` — fitted `mirt` model.  
-**Package:** `mirt::plot(type = "trace")` or `ggplot2` via
-`mirt::probtrace()`.
-
----
-
-### Figure 6 — Test Information Function (TIF)
-**Description:** Total test information curve and conditional SEM across
-the theta range, with cut-score markers.  
-**Inputs:** `model_results` — fitted `mirt` model.  
-**Package:** `mirt::plot(type = "infoSE")` or `ggplot2` via
-`mirt::testinfo()`.
-
----
-
-### Figure 7 — Person-Item Map (Wright Map)
-**Description:** Side-by-side display of person ability and item
-difficulty distributions on the theta scale.  
-**Inputs:** `model_results` — IRT ability estimates (`mirt::fscores()`)
-and item *b* parameters.  
-**Package:** `WrightMap::wrightMap()`.
-
----
-
-### Figure 8 — DIF Item Scatterplot
-**Description:** Scatterplot of item difficulty for focal vs. reference
-group, with DIF-flagged items annotated.  
-**Inputs:** Group-specific *p*-values or *b* parameters from
-`model_results` + DIF flag from Table 12.  
-**Package:** `ggplot2` (`geom_point()` + `ggrepel::geom_label_repel()`).
-
----
-
-### Figure 9 — Scree Plot / Parallel Analysis
-**Description:** Eigenvalue scree plot with parallel-analysis reference
-line to support dimensionality assessment.  
-**Inputs:** Item-level scored response matrix.  
-**Package:** `psych::fa.parallel()` or `ggplot2` with eigenvalues from
-`base::eigen()`.
-
----
-
-### Figure 10 — Expected Score Curve
-**Description:** Expected total test score (summed score) as a function
-of theta from the IRT model.  
-**Inputs:** `model_results` — fitted `mirt` model.  
-**Package:** `mirt::plot(type = "score")` or `ggplot2` via
-`mirt::expected.test()`.
-
----
-
-### Figure 11 — Subgroup Score Distribution Comparison
-**Description:** Overlapping kernel-density plots of scale scores for
-each demographic subgroup, with mean markers.  
-**Inputs:** `scored_data` — `scale_score` and demographic flag columns.  
-**Package:** `ggplot2` (`geom_density()` + `geom_vline()`).
-
----
-
-## Implementation Notes
-
-- All tables should be built with `flextable` and styled for accessible
-  Word output via `officer`.
-- All figures should be `ggplot2` objects (even if a specialist package
-  like `WrightMap` or `mirt` is used for the computation) so that
-  `ggplot2::ggsave()` in `04_build_report.R` works uniformly.
-- Each figure needs a descriptive `alt_text` string for Section 508
-  accessibility.
-- The `build_test_content()` function in `R/03_tables_figs.R` should
-  return a named list with elements `tables` (a named list of
-  `flextable` objects) and `figures` (a named list of lists, each with
-  `plot` and `alt_text`).
+This figure displays potential anchor items administered in consecutive years and the change in item difficulty between administrations. The x-axis shows the robust Z-score of the difference in item difficulty, and the y-axis lists item identifiers. Items exceeding the drift threshold (p < .01) are flagged and were excluded from the equating process. Note that Writing tests did not include anchor items this year and were equated using Editing & Mechanics items.
