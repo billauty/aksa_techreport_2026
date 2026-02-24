@@ -1,14 +1,26 @@
-# Load the four primary data files and return them as a named list.
+# Load the primary data files and return them as a named list.
+# Parses the SAS answer key file into a list of named vectors per test.
 #
 # Arguments:
 #   data_dir  - path to the top-level data directory (default: "data")
 #
 # Returns a list with elements: calib, responses, keys, cut_scores.
 load_all_data <- function(data_dir = "data") {
+  
+  # 1. Ingest and transform the SAS keys into a named list of vectors
+  # Groups by Subject and grade (e.g. "MA_03") and creates a vector of keys named by Task
+  raw_keys <- haven::read_sas(file.path(data_dir, "raw/alt_response_key.sas7bdat"))
+  
+  keys_list <- split(raw_keys, paste(raw_keys$Subject, raw_keys$grade, sep = "_")) |> 
+    lapply(function(df) {
+      # Extract the Key column and name the elements using the Task column
+      setNames(as.character(df$Key), as.character(df$Task))
+    })
+  
   list(
     calib      = readRDS(file.path(data_dir, "processed/calib25_final.rds")),
     responses  = readRDS(file.path(data_dir, "raw/responses.rds")),
-    keys       = readRDS(file.path(data_dir, "raw/keyVectors.rds")),
+    keys       = keys_list,
     cut_scores = readRDS(file.path(data_dir, "raw/AKSA_NAPD_Cut_Scores.rds"))
   )
 }
