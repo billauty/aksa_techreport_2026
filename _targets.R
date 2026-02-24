@@ -163,27 +163,27 @@ list(
     table_09_item_fit,
     table_10_q3_residuals,
     table_11_irt_reliability,
-    table_12_dif_lord,
+    table_12_dif_gender,    # Fixed name
     table_13_dif_iep,
     table_14_dif_lep,
-    table_15_class_acc,
-    table_16_decision_cons,
-    table_17_napd_acc,
+    table_15_class_accuracy,       # Fixed name
+    table_16_decision_consistency, # Fixed name
+    table_17_napd_accuracy,        # Fixed name
     fig_01_item_fit,
     fig_02_wright_map,
     fig_03_csem,
-    fig_04_dif_plot,
-    fig_05_dif_plot_iep,
-    fig_06_dif_plot_lep,
-    figs_07_10_learner,
+    fig_04_dif_gender,      # Fixed name
+    fig_05_dif_iep,
+    fig_06_dif_lep,
+    figs_07_10_lci,         # Fixed name
     fig_11_anchor_drift
   ),
   pattern = map(
     table_01_ctt_summary, table_02_item_stats, table_03_reliability, table_04_score_freq, table_05_distractor,
     table_06_irt_summary, table_07_raw_to_theta, table_08_irt_params, table_09_item_fit, table_10_q3_residuals,
-    table_11_irt_reliability, table_12_dif_lord, table_13_dif_iep, table_14_dif_lep, table_15_class_acc,
-    table_16_decision_cons, table_17_napd_acc, fig_01_item_fit, fig_02_wright_map, fig_03_csem,
-    fig_04_dif_plot, fig_05_dif_plot_iep, fig_06_dif_plot_lep, figs_07_10_learner, fig_11_anchor_drift
+    table_11_irt_reliability, table_12_dif_gender, table_13_dif_iep, table_14_dif_lep, table_15_class_accuracy,
+    table_16_decision_consistency, table_17_napd_accuracy, fig_01_item_fit, fig_02_wright_map, fig_03_csem,
+    fig_04_dif_gender, fig_05_dif_iep, fig_06_dif_lep, figs_07_10_lci, fig_11_anchor_drift
   ),
   iteration = "list"),
 
