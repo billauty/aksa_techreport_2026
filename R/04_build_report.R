@@ -70,13 +70,16 @@ create_accessible_yearbook <- function(test_content_objects, intro_docx) {
     for (fig in content$figures) {
       tmp_fig <- tempfile(fileext = ".png")
       ggplot2::ggsave(tmp_fig, plot = fig$plot)
-      doc <- officer::body_add_img(
-        doc,
-        src      = tmp_fig,
-        alt_text = fig$alt_text,
-        width    = 6,
-        height   = 4
+      # Create external image object with alt text
+      ext_img <- officer::external_img(
+        src = tmp_fig,
+        width = 6,
+        height = 4,
+        alt = fig$alt_text
       )
+
+      # Wrap in an fpar and add to document
+      doc <- officer::body_add_fpar(doc, officer::fpar(ext_img))
     }
   }
   
