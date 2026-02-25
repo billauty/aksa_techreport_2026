@@ -36,7 +36,6 @@ assemble_report_content <- function(test_id, table_01, table_02, table_03, table
   # Build the figures list, skipping any NULL entries (e.g. Figure 11 for
   # Writing tests that have no anchor items).
   named_figs <- list(
-    test_id = test_id,
     fig_01 = list(plot = fig_01,
                   alt_text = "Item Infit and Outfit mean-square statistics for each item."),
     fig_02 = list(plot = fig_02,
@@ -79,6 +78,7 @@ assemble_report_content <- function(test_id, table_01, table_02, table_03, table
   named_figs <- Filter(function(x) !is.null(x$plot), named_figs)
 
   list(
+    test_id = test_id,
     tables = list(
       table_01 = table_01,
       table_02 = table_02,
