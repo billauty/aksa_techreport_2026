@@ -25,7 +25,7 @@ make_empty_intro_docx <- function() {
 #
 # Returns a list with $tables (named list of flextable objects) and
 # $figures (named list of lists, each with $plot and $alt_text).
-assemble_report_content <- function(table_01, table_02, table_03, table_04, table_05,
+assemble_report_content <- function(test_id, table_01, table_02, table_03, table_04, table_05,
                                     table_06, table_07, table_08, table_09, table_10,
                                     table_11, table_12, table_13, table_14,
                                     table_15, table_16, table_17,
@@ -36,6 +36,7 @@ assemble_report_content <- function(table_01, table_02, table_03, table_04, tabl
   # Build the figures list, skipping any NULL entries (e.g. Figure 11 for
   # Writing tests that have no anchor items).
   named_figs <- list(
+    test_id = test_id,
     fig_01 = list(plot = fig_01,
                   alt_text = "Item Infit and Outfit mean-square statistics for each item."),
     fig_02 = list(plot = fig_02,
@@ -151,6 +152,22 @@ create_accessible_yearbook <- function(test_content_objects, intro_docx) {
       # Wrap in an fpar and add to document
       doc <- officer::body_add_fpar(doc, officer::fpar(ext_img))
     }
+    
+    # --- Create a unique page footer for this test's section ---
+    footer_block <- officer::block_list(
+      officer::fpar(officer::ftext(paste("Test:", content$test_id)))
+    )
+    
+    doc <- officer::body_end_block_section(
+      doc, 
+      value = officer::block_section(
+        officer::prop_section(
+          type = "nextPage",
+          footer_default = footer_block
+        )
+      )
+    )
+    # ---------------------------------------------------------------------
   }
   
   out_path <- "reports/Final_Technical_Report_2026.docx"
