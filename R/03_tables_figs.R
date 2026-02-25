@@ -529,7 +529,7 @@ make_figure_02_wright_map <- function(mirt_model, scored_resp, cut_score_val) {
   
   p <- p + labs(
     x       = expression("Logit Scale (Student Ability or Item Difficulty)"),
-    y       = "Density: Higher indicates more Students or Items at this level",
+    axis.title.y = element_text(size = 9, lineheight = 1.1, margin = margin(r = 10)),
     title   = "Figure 2: Wright Map \u2014 Student Ability and Item Difficulty",
     caption = paste0(
       "Grey shaded area = Student Ability Density. Solid black line = Item Difficulty Density.\n",
