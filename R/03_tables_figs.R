@@ -472,23 +472,24 @@ make_figure_03_csem <- function(mirt_model) {
 # ------------------------------------------------------------
 # Figure 2 — Wright Map (Person-Item Map)
 # Displays student ability estimates and item difficulty estimates
-# on the same logit scale.  Item difficulties are shown as labelled
-# points; student abilities are shown as a histogram.
+# on the same logit scale using overlaid density curves, a dot
+# rug of item difficulties, and NAPD cut-score reference lines.
 #
 # Arguments:
-#   mirt_model   - fitted mirt model object (SingleGroupClass)
-#   scored_resp  - data.frame of scored item responses as returned by
-#                  score_test_responses(); used to obtain person ability
-#                  estimates via mirt::fscores().
+#   mirt_model    - fitted mirt model object (SingleGroupClass)
+#   scored_resp   - data.frame of scored item responses as returned by
+#                   score_test_responses(); used to obtain person ability
+#                   estimates via mirt::fscores().
+#   cut_score_val - numeric scalar or vector of NAPD proficiency cut
+#                   scores on the theta metric; NA values are ignored.
 #
 # Returns a ggplot.
 # ------------------------------------------------------------
-make_figure_02_wright_map <- function(mirt_model, scored_resp) {
+make_figure_02_wright_map <- function(mirt_model, scored_resp, cut_score_val) {
   # ── Item difficulties ──────────────────────────────────────────────────────
-  params    <- mirt::coef(mirt_model, IRTpars = TRUE, simplify = TRUE)$items
-  item_b    <- params[, "b"]
-  items_df  <- data.frame(
-    item_id    = names(item_b),
+  params   <- mirt::coef(mirt_model, IRTpars = TRUE, simplify = TRUE)$items
+  item_b   <- params[, "b"]
+  items_df <- data.frame(
     difficulty = as.numeric(item_b),
     stringsAsFactors = FALSE
   )
@@ -499,45 +500,62 @@ make_figure_02_wright_map <- function(mirt_model, scored_resp) {
   theta_est   <- as.numeric(
     mirt::fscores(mirt_model, response.pattern = resp_matrix, verbose = FALSE)[, "F1"]
   )
-  persons_df  <- data.frame(theta = theta_est)
+  persons_df <- data.frame(theta = theta_est)
+
+  # ── Layout parameters ──────────────────────────────────────────────────────
+  # Compute density peaks to anchor the dot-rug y-position and segment height.
+  peak_y  <- max(max(density(persons_df$theta)$y), max(density(items_df$difficulty)$y))
+  dot_y   <- peak_y * 1.15   # dots sit just above the density peaks
+  seg_top <- dot_y  * 0.92   # cut-score segments stop just below the dots
+
+  # ── Cut scores ─────────────────────────────────────────────────────────────
+  cuts <- as.numeric(cut_score_val)
+  cuts <- cuts[!is.na(cuts)]
 
   # ── Plot ───────────────────────────────────────────────────────────────────
-  ggplot() +
-    # Person ability histogram (semi-transparent, top half)
-    geom_histogram(
+  p <- ggplot() +
+    # Layer 1: Student ability density — light grey fill, alpha 0.25
+    geom_density(
       data    = persons_df,
-      mapping = aes(x = theta, y = after_stat(count)),
-      binwidth = 0.25,
-      fill    = "steelblue",
-      alpha   = 0.50,
-      colour  = "white"
+      mapping = aes(x = theta),
+      fill    = "lightgrey",
+      alpha   = 0.25
     ) +
-    # Item difficulty points on a rug at the bottom
-    # Shape 124 is the ASCII vertical-bar character (|), used as a tick mark.
+    # Layer 2: Item difficulty density — solid black line, no fill
+    geom_density(
+      data    = items_df,
+      mapping = aes(x = difficulty),
+      fill    = NA,
+      colour  = "black"
+    ) +
+    # Layer 3: Item difficulty dot rug at fixed y just above density peaks
     geom_point(
       data    = items_df,
-      mapping = aes(x = difficulty, y = 0),
-      shape   = 124,
-      size    = 6,
-      colour  = "tomato"
-    ) +
-    ggrepel::geom_text_repel(
-      data    = items_df,
-      mapping = aes(x = difficulty, y = 0, label = item_id),
-      size    = 3,
-      colour  = "tomato",
-      nudge_y = 2,
-      segment.size = 0.3
+      mapping = aes(x = difficulty),
+      y       = dot_y,
+      shape   = 16,
+      size    = 2
     ) +
     labs(
-      x       = "Logit Scale (\u03b8 / Item Difficulty)",
-      y       = "Number of Students",
-      title   = "Figure 2: Wright Map — Student Ability and Item Difficulty",
-      caption = paste0(
-        "Blue histogram = student ability estimates. ",
-        "Red ticks/labels = item difficulty (b) parameters."
-      )
+      x     = expression(theta ~ "/ Item Difficulty (logit)"),
+      y     = "Density",
+      title = "Figure 2: Wright Map \u2014 Student Ability and Item Difficulty"
     ) +
-    theme_minimal() +
-    theme(plot.caption = element_text(size = 8, hjust = 0))
+    theme_minimal()
+
+  # Layer 4: NAPD cut-score vertical segments (y = 0 to just below dot rug)
+  if (length(cuts) > 0) {
+    cuts_df <- data.frame(x = cuts)
+    p <- p +
+      geom_segment(
+        data    = cuts_df,
+        mapping = aes(x = x, xend = x),
+        y       = 0,
+        yend    = seg_top,
+        colour  = "red",
+        linetype = "dashed"
+      )
+  }
+
+  p
 }
