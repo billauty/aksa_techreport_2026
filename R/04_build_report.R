@@ -117,6 +117,7 @@ create_accessible_yearbook <- function(test_content_objects, intro_docx) {
   }
 
   for (content in test_content_objects) {
+    
     # Embed all tables
     for (tbl in content$tables) {
       doc <- flextable::body_add_flextable(doc, tbl)
@@ -125,15 +126,28 @@ create_accessible_yearbook <- function(test_content_objects, intro_docx) {
     # Embed all figures
     for (fig in content$figures) {
       tmp_fig <- tempfile(fileext = ".png")
-      ggplot2::ggsave(tmp_fig, plot = fig$plot)
+      
+      # Explicitly set width, height, and high DPI to make it crisp 
+      # and automatically silence the "Saving X x Y" messages!
+      suppressMessages(
+        ggplot2::ggsave(
+          filename = tmp_fig, 
+          plot     = fig$plot, 
+          width    = 6.5, 
+          height   = 4.5, 
+          dpi      = 300, 
+          bg       = "white"
+        )
+      )
+      
       # Create external image object with alt text
       ext_img <- officer::external_img(
-        src = tmp_fig,
-        width = 6,
-        height = 4,
-        alt = fig$alt_text
+        src    = tmp_fig,
+        width  = 6.5,
+        height = 4.5,
+        alt    = fig$alt_text
       )
-
+      
       # Wrap in an fpar and add to document
       doc <- officer::body_add_fpar(doc, officer::fpar(ext_img))
     }

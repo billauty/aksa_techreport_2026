@@ -212,7 +212,8 @@ make_table_04_score_frequencies <- function(scored_data) {
 # Table 5 — Distractor Analysis
 # For each item and each response option, reports n, resP, pBis,
 # discrim, lower, mid66, and upper. The correct response is
-# flagged with an asterisk (*).
+# flagged with an asterisk (*). NAs are coded as "No Response"
+# and a horizontal line separates each item block.
 #
 # Arguments:
 #   raw_responses  - data.frame of chosen options (e.g., A, B, C, D),
@@ -224,7 +225,6 @@ make_table_04_score_frequencies <- function(scored_data) {
 # ------------------------------------------------------------
 make_table_05_distractor_analysis <- function(raw_responses, answer_key) {
   # Force answer_key to be a clean named character vector
-  # (handles tibbles, lists, factors, etc. coming from data ingestion)
   if (is.data.frame(answer_key)) {
     key_vec <- unlist(answer_key[1, ], use.names = TRUE)
   } else {
@@ -233,10 +233,15 @@ make_table_05_distractor_analysis <- function(raw_responses, answer_key) {
   }
   
   if (is.null(names(key_vec)) || any(names(key_vec) == "")) {
-    # If the keys lost their names during pipeline transit, assume they match
-    # the exact order of the provided raw response columns
+    # If the keys lost their names, assume they match raw columns
     names(key_vec) <- names(raw_responses)
   }
+  
+  # Replace all NAs in the raw response block with "No Response" so they get tallied
+  # Do this *before* any tallying, but *after* scoring is set up.
+  raw_filled <- as.data.frame(lapply(raw_responses, function(col) {
+    ifelse(is.na(col) | trimws(col) == "", "No Response", as.character(col))
+  }), stringsAsFactors = FALSE)
   
   # Build a scored (0/1) matrix for pBis and discrimination indices
   # Force everything to lowercase for case-insensitive matching
@@ -251,24 +256,29 @@ make_table_05_distractor_analysis <- function(raw_responses, answer_key) {
   
   # Determine group boundaries (lower 27 %, upper 27 %)
   n_total  <- nrow(raw_responses)
-  # type = 1 (inverse empirical CDF) matches the standard psychometric convention
-  # for defining the lower and upper 27% groups used in item discrimination indices.
   cut_low  <- quantile(total_score, probs = 0.27, type = 1, na.rm = TRUE)
   cut_high <- quantile(total_score, probs = 0.73, type = 1, na.rm = TRUE)
   grp_lower <- total_score <= cut_low
   grp_upper <- total_score >= cut_high
   grp_mid   <- !grp_lower & !grp_upper
   
-  rows <- lapply(names(raw_responses), function(item) {
-    responses <- raw_responses[[item]]
+  rows <- lapply(names(raw_filled), function(item) {
+    responses <- raw_filled[[item]]
     correct   <- key_vec[[item]]
-    options   <- sort(unique(na.omit(responses)))
     
-    # If no options exist, return a dummy row so flextable doesn't crash
+    # Extract unique chosen options (including "No Response")
+    # We force "No Response" to the end of the sorted options
+    options <- unique(responses)
+    options <- sort(options[options != "No Response"])
+    if ("No Response" %in% responses) {
+      options <- c(options, "No Response")
+    }
+    
+    # If no options exist somehow, return a dummy row
     if (length(options) == 0) return(NULL)
     
     lapply(options, function(opt) {
-      chose <- !is.na(responses) & responses == opt
+      chose <- responses == opt
       
       n_opt   <- sum(chose)
       resP    <- n_opt / n_total
@@ -286,8 +296,10 @@ make_table_05_distractor_analysis <- function(raw_responses, answer_key) {
       mid_prop   <- if (sum(grp_mid, na.rm = TRUE)   > 0) mean(chose[grp_mid], na.rm = TRUE)   else NA_real_
       discrim    <- if (!is.na(upper_prop) && !is.na(lower_prop)) upper_prop - lower_prop else NA_real_
       
-      # Flag correct answer (case insensitive match)
-      option_label <- if (tolower(as.character(opt)) == tolower(as.character(correct))) paste0(opt, "*") else as.character(opt)
+      # Flag correct answer (case insensitive match). 
+      # "No Response" should never match the correct key.
+      is_correct <- tolower(as.character(opt)) == tolower(as.character(correct)) && opt != "No Response"
+      option_label <- if (is_correct) paste0(opt, "*") else as.character(opt)
       
       data.frame(
         Item    = item,
@@ -307,9 +319,15 @@ make_table_05_distractor_analysis <- function(raw_responses, answer_key) {
   distractor_df <- do.call(rbind, do.call(c, rows))
   
   if (is.null(distractor_df) || nrow(distractor_df) == 0) {
-    # Return placeholder table if data is empty
     return(flextable(data.frame(Message = "No distractor data available for this test.")))
   }
+  
+  # Find the row indices where the item name changes, or where Option is "No Response"
+  # This targets the exact row that needs a bottom border.
+  split_rows <- which(distractor_df$Option == "No Response")
+  
+  # Standard border line
+  std_b <- fp_border(color = "black", width = 1)
   
   ft <- flextable(distractor_df) |>
     set_header_labels(
@@ -326,10 +344,27 @@ make_table_05_distractor_analysis <- function(raw_responses, answer_key) {
     colformat_int(j = "n") |>
     colformat_double(j = c("resP", "pBis", "discrim", "lower", "mid66", "upper"), digits = 2) |>
     theme_vanilla() |>
+    border_remove() |>
+    
+    # --- REDUCE ROW SPACING ---
+    # Set top and bottom padding to 1 pixel for all rows in the body
+    padding(padding.top = 1, padding.bottom = 1, part = "body") |>
+    
+    hline_top(part = "header", border = fp_border(color = "black", width = 1.5)) |>
+    hline_bottom(part = "header", border = std_b) |>
+    # Add a horizontal line *only* underneath the rows specified in split_rows
+    hline(i = split_rows, border = std_b, part = "body") |>
+    hline_bottom(part = "body", border = fp_border(color = "black", width = 1.5)) |>
     align(align = "center", part = "all") |>
     align(j = c("Item", "Option"), align = "left", part = "body") |>
     set_caption(caption = "Table 5: Distractor Analysis") |>
     autofit()
+  
+  # Merge duplicate item names vertically so the item name only appears on the first row
+  ft <- merge_v(ft, j = "Item")
+  
+  # Optional: Re-align the merged Item column to sit at the top of the merged cell
+  ft <- valign(ft, j = "Item", valign = "center", part = "body")
   
   ft
 }

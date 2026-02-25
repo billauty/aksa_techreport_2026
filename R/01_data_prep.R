@@ -213,3 +213,32 @@ extract_proficiency_cut <- function(cut_scores_row) {
   if (length(col) == 0) return(NA_real_)
   as.numeric(cut_scores_row[[col[1]]][1])
 }
+
+# Extract the 3 NAPD cut scores (Apprentice, Proficient, Distinguished)
+# and convert them from the reporting Scale Score metric to the Theta metric.
+#
+# Arguments:
+#   cut_scores_row  - single-row data.frame from get_cut_score_row().
+#
+# Returns a numeric vector of up to 3 theta cut scores.
+extract_napd_cuts <- function(cut_scores_row) {
+  # The linear transformation equation is: SS = (Theta * 20) + 200
+  # Therefore, Theta = (SS - 200) / 20
+  
+  # The 3 cut boundaries are the minimum scores for A, P, and D
+  target_cols <- c("Min_A", "Min_P", "Min_D")
+  
+  # Check if those columns exist in the cut score row
+  if (all(target_cols %in% names(cut_scores_row))) {
+    # Extract the Scale Score cuts
+    ss_cuts <- as.numeric(cut_scores_row[1, target_cols])
+    
+    # Convert them back to the theta metric so they plot correctly on the Wright Map
+    theta_cuts <- (ss_cuts - 200) / 20
+    
+    return(theta_cuts)
+  }
+  
+  # Fallback if columns are missing
+  return(numeric(0))
+}

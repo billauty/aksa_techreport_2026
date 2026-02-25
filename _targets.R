@@ -37,6 +37,9 @@ list(
   tar_target(cut_score_val,
              extract_proficiency_cut(cut_scores_row),
              pattern = map(cut_scores_row)),
+  tar_target(napd_cuts,
+             extract_napd_cuts(cut_scores_row),
+             pattern = map(cut_scores_row)),
 
   # ── CTT tables ──────────────────────────────────────────────────────────────
   tar_target(table_01_ctt_summary,
@@ -117,8 +120,8 @@ list(
              make_figure_01_item_fit(mirt_model),
              pattern = map(mirt_model)),
   tar_target(fig_02_wright_map,
-             make_figure_02_wright_map(mirt_model, scored_resp),
-             pattern = map(mirt_model, scored_resp)),
+             make_figure_02_wright_map(mirt_model, scored_resp, napd_cuts),
+             pattern = map(mirt_model, scored_resp, napd_cuts)),
   tar_target(fig_03_csem,
              make_figure_03_csem(mirt_model),
              pattern = map(mirt_model)),

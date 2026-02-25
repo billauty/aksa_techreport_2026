@@ -45,3 +45,7 @@ _site/
 # Sensitive or large files
 .Renviron
 .env
+
+# Other
+*.rtf
+
