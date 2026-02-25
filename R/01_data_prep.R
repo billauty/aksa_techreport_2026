@@ -199,6 +199,33 @@ get_cut_score_row <- function(cut_scores, test_id) {
   row[1, , drop = FALSE]
 }
 
+# Extract all 3 NAPD cut scores (Apprentice, Proficient, Distinguished)
+# from a single-row data.frame returned by get_cut_score_row().
+#
+# Arguments:
+#   cut_scores_row  - single-row data.frame from get_cut_score_row().
+#
+# Returns a numeric vector of up to 3 sorted cut score values, or
+# numeric(0) if no numeric cut-score columns are found.
+extract_napd_cuts <- function(cut_scores_row) {
+  # Look for columns that might represent the 3 cut scores
+  # Typically they are numeric columns other than test_id and grade
+  nums <- cut_scores_row[, sapply(cut_scores_row, is.numeric), drop = FALSE]
+
+  # Exclude common non-cut score columns if they exist
+  exclude <- c("grade", "Grade", "Year", "year")
+  nums <- nums[, !names(nums) %in% exclude, drop = FALSE]
+
+  if (ncol(nums) >= 3) {
+    # If we have at least 3 numeric columns, assume they are the cuts and sort them
+    cuts <- sort(as.numeric(nums[1, 1:3]))
+    return(cuts)
+  } else if (ncol(nums) > 0) {
+    return(as.numeric(nums[1, ]))
+  }
+  return(numeric(0))
+}
+
 # Extract the single-number proficiency cut score from a cut-score row.
 # Used when a scalar is needed (e.g., for Table 15 and Table 16).
 #

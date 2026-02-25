@@ -483,7 +483,7 @@ make_figure_03_csem <- function(mirt_model) {
 #
 # Returns a ggplot.
 # ------------------------------------------------------------
-make_figure_02_wright_map <- function(mirt_model, scored_resp) {
+make_figure_02_wright_map <- function(mirt_model, scored_resp, napd_cuts = numeric(0)) {
   # ── Item difficulties ──────────────────────────────────────────────────────
   params    <- mirt::coef(mirt_model, IRTpars = TRUE, simplify = TRUE)$items
   item_b    <- params[, "b"]
@@ -501,8 +501,13 @@ make_figure_02_wright_map <- function(mirt_model, scored_resp) {
   )
   persons_df  <- data.frame(theta = theta_est)
 
+  # ── Cut score vertical lines ───────────────────────────────────────────────
+  cut_labels <- c("Apprentice", "Proficient", "Distinguished")
+  cut_colors <- c("Apprentice" = "#E69F00", "Proficient" = "#009E73", "Distinguished" = "#CC79A7")
+  valid_cuts <- napd_cuts[!is.na(napd_cuts)]
+
   # ── Plot ───────────────────────────────────────────────────────────────────
-  ggplot() +
+  p <- ggplot() +
     # Person ability histogram (semi-transparent, top half)
     geom_histogram(
       data    = persons_df,
@@ -528,14 +533,40 @@ make_figure_02_wright_map <- function(mirt_model, scored_resp) {
       colour  = "tomato",
       nudge_y = 2,
       segment.size = 0.3
-    ) +
+    )
+
+  # Add a vertical line for each NAPD cut score
+  if (length(valid_cuts) > 0) {
+    for (i in seq_along(valid_cuts)) {
+      lbl   <- if (i <= length(cut_labels)) cut_labels[i] else paste("Cut", i)
+      color <- if (lbl %in% names(cut_colors)) cut_colors[[lbl]] else "grey40"
+      p <- p + geom_vline(
+        xintercept = valid_cuts[i],
+        linetype   = "dashed",
+        colour     = color,
+        linewidth  = 0.8
+      ) + annotate(
+        "text",
+        x     = valid_cuts[i],
+        y     = Inf,
+        label = lbl,
+        vjust = 1.4,
+        hjust = -0.1,
+        size  = 3,
+        colour = color
+      )
+    }
+  }
+
+  p +
     labs(
       x       = "Logit Scale (\u03b8 / Item Difficulty)",
       y       = "Number of Students",
       title   = "Figure 2: Wright Map — Student Ability and Item Difficulty",
       caption = paste0(
         "Blue histogram = student ability estimates. ",
-        "Red ticks/labels = item difficulty (b) parameters."
+        "Red ticks/labels = item difficulty (b) parameters.",
+        if (length(valid_cuts) > 0) " Dashed lines = NAPD cut scores." else ""
       )
     ) +
     theme_minimal() +
