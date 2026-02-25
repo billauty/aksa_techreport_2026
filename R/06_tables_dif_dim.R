@@ -54,12 +54,16 @@ make_table_10_q3_residuals <- function(mirt_model) {
 # Arguments:
 #   scored_data  - data.frame with an SSID column and binary item
 #                  columns (e.g., A1 … F5).
-#   demo_data    - data.frame with columns SSID, SEX, IEP, LEP, etc.
+#   demo_data    - data.frame with columns SSID and demographic
+#                  variables (SEX/Gender, Ethnic/Ethnicity/Race,
+#                  Disadvantaged/ED, LEP, Homeless).
 #
-# Returns a flextable.
+# Returns a flextable with columns: Category, Group, nStudents, Reliability.
 # ------------------------------------------------------------
 make_table_11_subgroup_reliability <- function(scored_data, demo_data) {
-  joined <- dplyr::inner_join(scored_data, demo_data, by = "SSID")
+  # Coerce SSID to character and trim whitespace before joining
+  scored_data$SSID <- trimws(as.character(scored_data$SSID))
+  demo_data$SSID   <- trimws(as.character(demo_data$SSID))
 
   # Identify item columns (all numeric columns except SSID)
   item_cols <- setdiff(
@@ -76,50 +80,83 @@ make_table_11_subgroup_reliability <- function(scored_data, demo_data) {
     CTT::reliability(items)$alpha
   }
 
+  # "All" row computed from scored_data BEFORE join (avoids SSID mismatch issues)
   rows <- list(
-    data.frame(Subgroup = "All Students",
-               N = nrow(joined),
-               Reliability = .kr20(joined),
+    data.frame(Category    = "All",
+               Group       = "",
+               nStudents   = nrow(scored_data),
+               Reliability = .kr20(scored_data),
                stringsAsFactors = FALSE)
   )
 
-  # Define subgroups as named logical filters
-  subgroups <- list(
-    "Male (SEX = M)"   = if ("SEX" %in% names(joined)) joined$SEX == "M"  else NULL,
-    "Female (SEX = F)" = if ("SEX" %in% names(joined)) joined$SEX == "F"  else NULL,
-    "IEP (IEP = Y)"    = if ("IEP" %in% names(joined)) joined$IEP == "Y"  else NULL,
-    "LEP (LEP = Y)"    = if ("LEP" %in% names(joined)) joined$LEP == "Y"  else NULL
-  )
+  # Join for subgroup rows
+  joined <- dplyr::left_join(scored_data, demo_data, by = "SSID")
 
-  for (label in names(subgroups)) {
-    mask <- subgroups[[label]]
-    if (is.null(mask)) next
-    sub_df <- joined[!is.na(mask) & mask, , drop = FALSE]
-    n_sub  <- nrow(sub_df)
-    if (n_sub <= 30) next
-    rows <- c(rows, list(
-      data.frame(Subgroup = label,
-                 N = n_sub,
-                 Reliability = .kr20(sub_df),
-                 stringsAsFactors = FALSE)
-    ))
+  # Helper: add subgroup rows for a demographic column
+  .add_subgroup_rows <- function(rows, category, col_names, value_map = NULL) {
+    # Find which column name exists in joined
+    col <- col_names[col_names %in% names(joined)][1]
+    if (is.na(col)) return(rows)
+
+    vals <- unique(joined[[col]])
+    vals <- sort(vals[!is.na(vals)])
+
+    for (v in vals) {
+      sub_df <- joined[!is.na(joined[[col]]) & joined[[col]] == v, , drop = FALSE]
+      n_sub  <- nrow(sub_df)
+      if (n_sub < 10) next
+      label <- if (!is.null(value_map) && !is.null(value_map[[v]])) value_map[[v]] else as.character(v)
+      rows <- c(rows, list(
+        data.frame(Category    = category,
+                   Group       = label,
+                   nStudents   = n_sub,
+                   Reliability = .kr20(sub_df),
+                   stringsAsFactors = FALSE)
+      ))
+    }
+    rows
   }
+
+  # Gender
+  rows <- .add_subgroup_rows(rows, "Gender",
+                             c("Gender", "SEX"),
+                             list(M = "Male", F = "Female"))
+
+  # Ethnicity
+  rows <- .add_subgroup_rows(rows, "Ethnic",
+                             c("Ethnic", "Ethnicity", "Race"))
+
+  # Disadvantaged / Economically Disadvantaged
+  rows <- .add_subgroup_rows(rows, "Disadvantaged",
+                             c("Disadvantaged", "ED"),
+                             list(Y = "Yes", N = "No"))
+
+  # LEP
+  rows <- .add_subgroup_rows(rows, "LEP",
+                             c("LEP"),
+                             list(Y = "Yes", N = "No"))
+
+  # Homeless
+  rows <- .add_subgroup_rows(rows, "Homeless",
+                             c("Homeless"),
+                             list(Y = "Yes", N = "No"))
 
   rel_df <- do.call(rbind, rows)
 
   ft <- flextable(rel_df) |>
     set_header_labels(
-      Subgroup    = "Subgroup",
-      N           = "N",
-      Reliability = "Reliability (KR-20)"
+      Category    = "Category",
+      Group       = "Group",
+      nStudents   = "nStudents",
+      Reliability = "Reliability"
     ) |>
-    colformat_int(j = "N") |>
+    colformat_int(j = "nStudents") |>
     colformat_double(j = "Reliability", digits = 3) |>
     theme_vanilla() |>
     align(align = "right", part = "body") |>
-    align(j = "Subgroup", align = "left", part = "body") |>
+    align(j = c("Category", "Group"), align = "left", part = "body") |>
     align(align = "center", part = "header") |>
-    set_caption(caption = "Table 11: Subgroup Reliability (KR-20)") |>
+    set_caption(caption = "Table 11: Reliability for All students and Subgroups of Sufficient Size") |>
     autofit()
 
   ft
