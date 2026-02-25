@@ -65,10 +65,10 @@ make_table_11_subgroup_reliability <- function(scored_data, demo_data) {
   scored_data$SSID <- trimws(as.character(scored_data$SSID))
   demo_data$SSID   <- trimws(as.character(demo_data$SSID))
 
-  # Identify item columns (all numeric columns except SSID)
+  # Identify item columns (all numeric columns except SSID and complete)
   item_cols <- setdiff(
     names(scored_data)[sapply(scored_data, is.numeric)],
-    "SSID"
+    c("SSID", "complete")
   )
 
   # Helper: KR-20 via CTT::reliability() on just the item columns
@@ -106,7 +106,10 @@ make_table_11_subgroup_reliability <- function(scored_data, demo_data) {
       sub_df <- joined[!is.na(joined[[col]]) & joined[[col]] == v, , drop = FALSE]
       n_sub  <- nrow(sub_df)
       if (n_sub < 10) next
-      label <- if (!is.null(value_map) && !is.null(value_map[[v]])) value_map[[v]] else as.character(v)
+
+      v_chr <- as.character(v)
+      label <- if (!is.null(value_map) && !is.null(value_map[[v_chr]])) value_map[[v_chr]] else v_chr
+
       rows <- c(rows, list(
         data.frame(Category    = category,
                    Group       = label,
@@ -196,7 +199,7 @@ make_table_12_dif_lord <- function(scored_data, demo_data, group_col, table_num 
 
   item_cols <- setdiff(
     names(scored_data)[sapply(scored_data, is.numeric)],
-    "SSID"
+    c("SSID", "complete")
   )
 
   set.seed(seed)
