@@ -89,8 +89,9 @@ make_table_11_subgroup_reliability <- function(scored_data, demo_data) {
                stringsAsFactors = FALSE)
   )
 
-  # Join for subgroup rows
-  joined <- dplyr::left_join(scored_data, demo_data, by = "SSID")
+  # Join ONLY the necessary columns to prevent column name collisions
+  demo_cols_to_keep <- intersect(names(demo_data), c("SSID", "SEX", "Gender", "Ethnic", "Ethnicity", "Race", "Disadvantaged", "ED", "LEP", "Homeless"))
+  joined <- dplyr::left_join(scored_data, demo_data[, demo_cols_to_keep, drop = FALSE], by = "SSID")
 
   # Helper: add subgroup rows for a demographic column
   .add_subgroup_rows <- function(rows, category, col_names, value_map = NULL) {
