@@ -100,19 +100,21 @@ make_table_11_subgroup_reliability <- function(scored_data, demo_data, test_id =
     col <- col_names[col_names %in% names(joined)][1]
     if (is.na(col)) return(rows)
     
-    # ---> Convert to standard vector to strip haven_labelled class <---
+    # 1. Strip haven classes completely by coercing to a standard character vector
     grp_vec <- as.character(joined[[col]])
     
     vals <- unique(grp_vec)
     vals <- sort(vals[!is.na(vals)])
     
     for (v in vals) {
-      # ---> Use grp_vec for the logical subsetting instead <---
+      # 2. Use the stripped grp_vec for the logical subsetting!
       sub_df <- joined[!is.na(grp_vec) & grp_vec == v, , drop = FALSE]
       n_sub  <- nrow(sub_df)
       if (n_sub < 10) next
       
-      label <- if (!is.null(value_map) && !is.null(value_map[[v]])) value_map[[v]] else as.character(v)
+      # 3. Look up the label
+      label <- if (!is.null(value_map) && !is.null(value_map[[v]])) value_map[[v]] else v
+      
       rows <- c(rows, list(
         data.frame(Category    = category,
                    Group       = label,
