@@ -50,12 +50,21 @@ make_table_10_q3_residuals <- function(mirt_model) {
 # Table 11 — Subgroup Reliability (KR-20)
 # ------------------------------------------------------------
 make_table_11_subgroup_reliability <- function(scored_data, demo_data, test_id = NULL) {
-  # STRIP haven_labelled classes to permanently prevent vctrs subsetting crashes
+  
+  # Safely convert haven_labelled columns to characters using their actual string labels
   strip_labels <- function(df) {
-    as.data.frame(lapply(df, function(x) {
-      if (inherits(x, "haven_labelled")) as.vector(x) else x
-    }), stringsAsFactors = FALSE)
+    for (col in names(df)) {
+      if (inherits(df[[col]], "haven_labelled")) {
+        df[[col]] <- if (requireNamespace("haven", quietly = TRUE)) {
+          as.character(haven::as_factor(df[[col]]))
+        } else {
+          as.character(df[[col]])
+        }
+      }
+    }
+    df
   }
+  
   scored_data <- strip_labels(scored_data)
   demo_data   <- strip_labels(demo_data)
   
@@ -74,11 +83,9 @@ make_table_11_subgroup_reliability <- function(scored_data, demo_data, test_id =
     items <- df[, item_cols, drop = FALSE]
     items <- items[complete.cases(items), , drop = FALSE]
     if (nrow(items) < 2) return(NA_real_)
-    # CTT::reliability()$alpha equals KR-20 when item scores are binary (0/1)
     CTT::reliability(items)$alpha
   }
   
-  # "All" row computed from scored_data BEFORE join (avoids SSID mismatch issues)
   rows <- list(
     data.frame(Category    = "All",
                Group       = "",
@@ -87,8 +94,8 @@ make_table_11_subgroup_reliability <- function(scored_data, demo_data, test_id =
                stringsAsFactors = FALSE)
   )
   
-  # Join ONLY the necessary columns to prevent column name collisions
-  demo_cols_to_keep <- intersect(names(demo_data), c("SSID", "SEX", "Gender", "Ethnic", "Ethnicity", "Race", "Disadvantaged", "ED", "LEP", "Homeless"))
+  # Join ONLY the necessary columns (Note: Added 'IEP' to this list!)
+  demo_cols_to_keep <- intersect(names(demo_data), c("SSID", "SEX", "Gender", "Ethnic", "Ethnicity", "Race", "Disadvantaged", "ED", "LEP", "Homeless", "IEP"))
   joined <- dplyr::left_join(scored_data, demo_data[, demo_cols_to_keep, drop = FALSE], by = "SSID")
   
   # Helper: add subgroup rows for a demographic column
@@ -96,9 +103,9 @@ make_table_11_subgroup_reliability <- function(scored_data, demo_data, test_id =
     col <- col_names[col_names %in% names(joined)][1]
     if (is.na(col)) return(rows)
     
-    grp_vec <- as.character(joined[[col]])
+    grp_vec <- trimws(as.character(joined[[col]]))
     vals <- unique(grp_vec)
-    vals <- sort(vals[!is.na(vals)])
+    vals <- sort(vals[!is.na(vals) & vals != ""])
     
     for (v in vals) {
       sub_df <- joined[!is.na(grp_vec) & grp_vec == v, , drop = FALSE]
@@ -118,29 +125,12 @@ make_table_11_subgroup_reliability <- function(scored_data, demo_data, test_id =
     rows
   }
   
-  # Gender
-  rows <- .add_subgroup_rows(rows, "Gender",
-                             c("Gender", "SEX"),
-                             list(M = "Male", F = "Female"))
-  
-  # Ethnicity
-  rows <- .add_subgroup_rows(rows, "Ethnic",
-                             c("Ethnic", "Ethnicity", "Race"))
-  
-  # Disadvantaged / Economically Disadvantaged
-  rows <- .add_subgroup_rows(rows, "Disadvantaged",
-                             c("Disadvantaged", "ED"),
-                             list(Y = "Yes", N = "No"))
-  
-  # LEP
-  rows <- .add_subgroup_rows(rows, "LEP",
-                             c("LEP"),
-                             list(Y = "Yes", N = "No"))
-  
-  # Homeless
-  rows <- .add_subgroup_rows(rows, "Homeless",
-                             c("Homeless"),
-                             list(Y = "Yes", N = "No"))
+  rows <- .add_subgroup_rows(rows, "Gender", c("Gender", "SEX"), list(M = "Male", F = "Female"))
+  rows <- .add_subgroup_rows(rows, "Ethnicity", c("Ethnic", "Ethnicity", "Race"))
+  rows <- .add_subgroup_rows(rows, "Disadvantaged", c("Disadvantaged", "ED"), list(Y = "Yes", N = "No"))
+  rows <- .add_subgroup_rows(rows, "LEP", c("LEP"), list(Y = "Yes", N = "No"))
+  rows <- .add_subgroup_rows(rows, "IEP", c("IEP"), list(Y = "Yes", N = "No"))
+  rows <- .add_subgroup_rows(rows, "Homeless", c("Homeless"), list(Y = "Yes", N = "No"))
   
   rel_df <- do.call(rbind, rows)
   
@@ -172,12 +162,20 @@ make_table_11_subgroup_reliability <- function(scored_data, demo_data, test_id =
 # Table 12 — DIF Analysis: Lord's Delta
 # ------------------------------------------------------------
 make_table_12_dif_lord <- function(scored_data, demo_data, group_col, table_num = 12L, seed = 42) {
-  # STRIP haven_labelled classes to permanently prevent vctrs subsetting crashes
+  # Safely convert haven_labelled columns to characters using their actual string labels
   strip_labels <- function(df) {
-    as.data.frame(lapply(df, function(x) {
-      if (inherits(x, "haven_labelled")) as.vector(x) else x
-    }), stringsAsFactors = FALSE)
+    for (col in names(df)) {
+      if (inherits(df[[col]], "haven_labelled")) {
+        df[[col]] <- if (requireNamespace("haven", quietly = TRUE)) {
+          as.character(haven::as_factor(df[[col]]))
+        } else {
+          as.character(df[[col]])
+        }
+      }
+    }
+    df
   }
+  
   scored_data <- strip_labels(scored_data)
   demo_data   <- strip_labels(demo_data)
   
