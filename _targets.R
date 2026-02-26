@@ -135,21 +135,23 @@ list(
              make_table_17_napd_accuracy(mirt_model, scored_resp, napd_cuts),
              pattern = map(mirt_model, scored_resp, napd_cuts)),
   
-  # Learner Characteristics figures (one list per test; one ggplot per trait)
-  tar_target(figs_07_10_lci, {
-    traits <- intersect(
-      c("Expressive Communication", "Receptive Language", "Reading", "Mathematics"),
-      names(lci_data)
-    )
-    lapply(traits, function(t)
-      make_figures_07_10_learner_characteristics(scored_resp, lci_data, t))
-  }, pattern = map(scored_resp), iteration = "list"),
+  # ── Learner Characteristics (LCI) Figures ───────────────────────────────────
+  # LCI data is loaded dynamically inside the function, or pass the raw_resp
+  tar_target(figs_07_10_lci,
+             make_figures_07_10_learner_characteristics(
+               scored_data = scored_resp,
+               lci_data = lci_data,       # Ensures targets caches the Excel file
+               raw_data = raw_resp,       # Pass the raw response data here to get the Scale Score
+               test_id = test_ids
+             ),
+             pattern = map(scored_resp, raw_resp, test_ids)),
   
-  # Anchor-item drift figure (NULL for tests without anchor items)
-  tar_target(fig_11_anchor_drift, {
-    drift_df <- all_drift_data[[test_ids]]
-    make_figure_11_anchor_drift(drift_df, test_id = test_ids)
-  }, pattern = map(test_ids), iteration = "list"),
+  # ── Anchor item drift
+  tar_target(anchor_drift_data, load_drift_data()),
+  
+  tar_target(fig_11_anchor_drift, 
+             make_figure_11_anchor_drift(anchor_drift_data, test_ids), 
+             pattern = map(test_ids)),
   
   # ── Report Generation ──────────────────────────────────────────────────────
   # Combine all the outputs for one test into a single list to pass to the report

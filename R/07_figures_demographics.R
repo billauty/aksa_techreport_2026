@@ -1,136 +1,197 @@
 library(dplyr)
 library(tidyr)
 library(ggplot2)
+library(ggsignif)
 library(stringr)
 
 # ------------------------------------------------------------
 # Figures 7–10 — Learner Characteristics Boxplots
-# Displays total raw score distributions across categories of a
-# single Learner Characteristics Inventory (LCI) trait.
+# Displays Scale Score distributions across categories of 4
+# Learner Characteristics Inventory (LCI) traits, annotated
+# with pairwise Wilcoxon test p-values.
 #
 # Arguments:
-#   scored_data  - data.frame with an SSID column and binary item
-#                  columns (0/1); total raw score is computed here.
-#   lci_data     - data.frame loaded from
-#                  Learner_Characteristics_Inventory_24_25.xlsx;
-#                  must contain an SSID column (may need zero-padding)
-#                  and a column whose name matches `trait`.
-#   trait        - character; name of the LCI trait column to plot on
-#                  the x-axis (e.g., "Expressive Communication").
+#   scored_data - data.frame with an SSID column. We use this to get the N.
+#   lci_data    - data.frame loaded from LCI Excel file.
+#   raw_data    - the raw student demographic data containing the scale scores.
+#   test_id     - character; e.g. "RD_04".
 #
-# Returns a ggplot.
+# Returns a list of 4 ggplot objects.
 # ------------------------------------------------------------
-make_figures_07_10_learner_characteristics <- function(scored_data, lci_data, trait) {
-  # Width used to zero-pad SSID values in LCI data to match scored_data format
-  SSID_PADDING_WIDTH <- 10L
-
-  # Identify binary item columns (all numeric columns except SSID)
-  item_cols <- setdiff(
-    names(scored_data)[sapply(scored_data, is.numeric)],
-    "SSID"
-  )
-
-  # Compute total raw score per student
-  scored_data <- scored_data |>
-    dplyr::mutate(
-      TotalRawScore = rowSums(dplyr::pick(dplyr::all_of(item_cols)),
-                              na.rm = TRUE)
-    )
-
-  # Zero-pad SSID in LCI data so it matches scored_data format
-  lci_data <- lci_data |>
-    dplyr::mutate(
-      SSID = stringr::str_pad(as.character(SSID), SSID_PADDING_WIDTH, pad = "0")
-    )
-
-  # Join on SSID, keeping only rows present in both data sets
-  joined <- dplyr::inner_join(
-    scored_data[, c("SSID", "TotalRawScore")],
-    lci_data[, c("SSID", trait)],
-    by = "SSID"
-  )
-
-  # Drop rows with NA in the selected trait
-  joined <- joined[!is.na(joined[[trait]]), , drop = FALSE]
-
-  # Build N-count labels and join back to avoid deprecated dplyr::recode()
-  n_counts <- joined |>
-    dplyr::count(.data[[trait]]) |>
-    dplyr::mutate(
-      trait_label = stringr::str_wrap(
-        paste0(.data[[trait]], "\n(n = ", n, ")"),
-        width = 20
+make_figures_07_10_learner_characteristics <- function(scored_data, lci_data, raw_data, test_id) {
+  
+  # 1. Resolve scale-score column and grade from test_id
+  subject <- sub("_.*$", "", test_id)
+  grade_str <- sub("^.*_", "", test_id)
+  
+  # For some states, grade might be "04" and the column might be "RD_Scale_Score"
+  score_var <- paste0(subject, "_Scale_Score")
+  
+  # If the specific score variable isn't in the data, default to using the raw scores
+  # (Fallback just in case your raw_data format changed this year)
+  use_raw_fallback <- !(score_var %in% names(raw_data))
+  
+  # 2. Extract secure scores
+  if (!use_raw_fallback) {
+    secure_scores <- raw_data |>
+      dplyr::transmute(
+        SSID  = as.character(SSID),
+        score = as.numeric(.data[[score_var]])
       )
-    )
-
-  joined <- dplyr::left_join(joined, n_counts[, c(trait, "trait_label")], by = trait)
-
-  ggplot(joined, aes(x = trait_label, y = TotalRawScore, fill = trait_label)) +
-    geom_boxplot(colour = "grey30", outlier.shape = 21,
-                 outlier.size = 1.5, alpha = 0.75) +
-    scale_fill_brewer(palette = "Set2") +
-    labs(
-      x       = stringr::str_wrap(trait, width = 40),
-      y       = "Total Raw Score",
-      title   = paste0("Score Distribution by ", trait),
-      caption = paste0("Boxes show median, IQR, and 1.5\u00d7IQR whiskers. ",
-                       "N-counts in x-axis labels.")
-    ) +
-    theme_minimal() +
-    theme(
-      legend.position  = "none",
-      axis.text.x      = element_text(size = 9),
-      plot.caption     = element_text(size = 8, hjust = 0)
-    )
-}
-
-# ------------------------------------------------------------
-# Figure 11 — Anchor Item Drift Plot
-# Displays robust-Z drift statistics for anchor items, coloured
-# by stability flag, with significance-threshold reference lines.
-#
-# Arguments:
-#   drift_df  - tibble / data.frame with columns:
-#                 item_id   - character item identifier
-#                 robust_z  - numeric robust-Z drift statistic
-#                 unstable  - logical; TRUE when item is flagged
-#               Pass NULL (or an empty data.frame) for Writing tests
-#               that have no anchor items — the function returns NULL.
-#   test_id   - character test identifier used in the plot title
-#               (e.g., "RD_04").
-#
-# Returns a ggplot, or NULL when drift_df is NULL / empty.
-# ------------------------------------------------------------
-make_figure_11_anchor_drift <- function(drift_df, test_id) {
-  # Return NULL early for Writing tests (no anchor items)
-  if (is.null(drift_df) || nrow(drift_df) == 0) {
-    return(NULL)
+  } else {
+    # Fallback to computing total raw score if Scale Score isn't available
+    item_cols <- setdiff(names(scored_data)[sapply(scored_data, is.numeric)], "SSID")
+    secure_scores <- scored_data |>
+      dplyr::mutate(
+        SSID = as.character(SSID),
+        score = rowSums(dplyr::pick(dplyr::all_of(item_cols)), na.rm = TRUE)
+      ) |>
+      dplyr::select(SSID, score)
   }
-
-  # Order items alphabetically on the y-axis
-  drift_df <- drift_df |>
-    dplyr::mutate(item_id = factor(item_id, levels = sort(unique(item_id))))
-
-  ggplot(drift_df, aes(x = robust_z, y = item_id, colour = unstable)) +
-    geom_vline(xintercept = c(-1.96, 1.96),
-               linetype = "dashed", colour = "grey50", linewidth = 0.6) +
-    geom_vline(xintercept = 0,
-               linetype = "solid", colour = "grey70", linewidth = 0.4) +
-    geom_point(size = 3) +
-    scale_colour_manual(
-      name   = "Item Status",
-      values = c("FALSE" = "grey30", "TRUE" = "#C0392B"),
-      labels = c("FALSE" = "Stable", "TRUE" = "Unstable (flagged)")
-    ) +
-    labs(
-      x       = "Robust Z",
-      y       = "Item ID",
-      title   = paste0("Figure 11: Anchor Item Drift \u2014 ", test_id),
-      caption = paste0("Dashed lines at \u00b11.96. Points in red exceed the drift threshold.")
-    ) +
-    theme_minimal() +
-    theme(
-      legend.position = "bottom",
-      plot.caption    = element_text(size = 8, hjust = 0)
+  
+  # 3. Clean LCI Data and pad SSIDs to match
+  # Ensure column names match what we expect
+  names(lci_data) <- gsub(" ", ".", names(lci_data))
+  
+  # If columns are missing, return a list of NULLs so the pipeline doesn't crash
+  req_cols <- c("Expressive.Communication", "Receptive.Language", "Reading", "Mathematics")
+  if (!all(req_cols %in% names(lci_data))) {
+    return(list(NULL, NULL, NULL, NULL))
+  }
+  
+  lci_data <- lci_data |>
+    dplyr::mutate(SSID = stringr::str_pad(as.character(SSID), 10L, pad = "0")) |>
+    dplyr::select(SSID, dplyr::all_of(req_cols))
+  
+  # 4. Build long dataset 
+  lc_long <- lci_data |>
+    tidyr::pivot_longer(
+      cols = -SSID,
+      names_to  = "LearnerCharacteristic",
+      values_to = "value"
+    ) |>
+    dplyr::inner_join(secure_scores, by = "SSID") |>
+    dplyr::filter(
+      !is.na(value),
+      !is.na(score)
+    ) |>
+    dplyr::mutate(
+      LearnerCharacteristic = factor(LearnerCharacteristic),
+      value = factor(value)
     )
+  
+  # 5. Plotting function with 2025 statistical logic
+  make_boxplot <- function(dat, trait_name) {
+    
+    # Drop extreme 1% tails
+    dat <- dat |>
+      dplyr::group_by(value) |>
+      dplyr::filter(
+        score >= quantile(score, 0.01, na.rm = TRUE),
+        score <= quantile(score, 0.99, na.rm = TRUE)
+      ) |>
+      dplyr::ungroup()
+    
+    # Pairwise Wilcoxon Test
+    pw <- pairwise.wilcox.test(dat$score, dat$value, p.adjust.method = "none")
+    
+    pw_tbl <- as.data.frame(as.table(pw$p.value)) |>
+      dplyr::filter(!is.na(Freq)) |>
+      dplyr::rename(g1 = Var1, g2 = Var2, p = Freq)
+    
+    # Filter significant
+    alpha <- 0.05
+    pw_sig <- pw_tbl |> dplyr::filter(p < alpha)
+    
+    y_max  <- max(dat$score, na.rm = TRUE)
+    y_span <- diff(range(dat$score, na.rm = TRUE))
+    
+    y_lower <- floor(quantile(dat$score, 0.02, na.rm = TRUE))
+    y_upper <- ceiling(
+      if (nrow(pw_sig) > 0)
+        max(y_max + seq_len(nrow(pw_sig)) * (0.05 * y_span))
+      else y_max
+    )
+    
+    # Add N-counts to x-axis labels
+    n_counts <- dat |> dplyr::count(value)
+    dat <- dat |> dplyr::left_join(n_counts, by = "value") |>
+      dplyr::mutate(value_label = paste0(value, "\n(n = ", n, ")"))
+    
+    # Update significance table with the new labels
+    if (nrow(pw_sig) > 0) {
+      pw_sig$g1_label <- n_counts$n[match(pw_sig$g1, n_counts$value)]
+      pw_sig$g2_label <- n_counts$n[match(pw_sig$g2, n_counts$value)]
+      pw_sig$g1_full <- paste0(pw_sig$g1, "\n(n = ", pw_sig$g1_label, ")")
+      pw_sig$g2_full <- paste0(pw_sig$g2, "\n(n = ", pw_sig$g2_label, ")")
+    }
+    
+    p <- ggplot(dat, aes(x = value_label, y = score)) +
+      geom_boxplot(
+        outlier.shape = NA,
+        varwidth = TRUE,
+        linewidth = 0.4,
+        fill = "lightblue",
+        alpha = 0.6
+      ) +
+      labs(
+        title = paste("Score Distribution by", gsub("\\.", " ", trait_name)),
+        x = "Category",
+        y = if(use_raw_fallback) "Total Raw Score" else "Scale Score"
+      ) +
+      scale_y_continuous(
+        limits = c(y_lower, y_upper),
+        expand = c(0, 0)
+      ) +
+      theme_minimal(base_size = 10) +
+      scale_x_discrete(guide = guide_axis(n.dodge = 2))
+    
+    # Add bracket annotations for significant differences
+    if (nrow(pw_sig) > 0) {
+      pw_sig <- pw_sig |>
+        dplyr::arrange(g1_full, g2_full) |>
+        dplyr::mutate(
+          xmin = g1_full,
+          xmax = g2_full,
+          annotations = paste0("p = ", formatC(p, digits = 3, format = "f")),
+          y_position = y_max + seq_len(dplyr::n()) * (0.04 * y_span)
+        )
+      
+      p <- p +
+        ggsignif::geom_signif(
+          data = pw_sig,
+          aes(xmin = xmin, xmax = xmax,
+              annotations = annotations,
+              y_position = y_position),
+          manual = TRUE,
+          textsize = 3.5,
+          vjust = 0.3,
+          tip_length = 0.01
+        )
+    } else {
+      p <- p +
+        annotate(
+          "text",
+          x = mean(seq_along(unique(dat$value_label))),
+          y = y_upper - 0.05 * y_span,
+          label = "No statistically significant pairwise differences (α = 0.05)",
+          size = 3.5,
+          fontface = "italic"
+        )
+    }
+    
+    return(p)
+  }
+  
+  # 6. Build and return the 4 plots directly (No PDFs!)
+  traits <- c("Expressive.Communication", "Receptive.Language", "Reading", "Mathematics")
+  plots <- lapply(traits, function(t) {
+    sub_dat <- lc_long |> dplyr::filter(LearnerCharacteristic == t)
+    if(nrow(sub_dat) == 0) return(NULL)
+    make_boxplot(sub_dat, t)
+  })
+  
+  # Return named list so assemble_report_content can extract them correctly
+  names(plots) <- traits
+  return(plots)
 }

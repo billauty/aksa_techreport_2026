@@ -547,3 +547,67 @@ make_figure_02_wright_map <- function(mirt_model, scored_resp, cut_score_val) {
   
   p
 }
+
+# ------------------------------------------------------------
+# Figure 11 — Anchor Item Drift Plot
+# Displays the robust Z-score drift for anchor items, flagging
+# items that suggest removal from equating.
+#
+# Arguments:
+#   drift_list - A list of data frames containing anchor drift data,
+#                keyed by test_id (e.g. from load_drift_data()).
+#   test_id    - Character; the identifier for the current test (e.g. "RD_04")
+#
+# Returns a ggplot object or NULL if no drift data exists for the test.
+# ------------------------------------------------------------
+make_figure_11_anchor_drift <- function(drift_list, test_id) {
+  # If the drift_list doesn't contain this test_id, return NULL
+  if (is.null(drift_list) || !(test_id %in% names(drift_list))) {
+    return(NULL)
+  }
+  
+  # Extract the specific data frame for this test
+  df <- drift_list[[test_id]]
+  
+  if (!is.data.frame(df) || nrow(df) == 0) {
+    return(NULL)
+  }
+  
+  # Validate required columns
+  req_cols <- c("item_id", "robust_z", "unstable")
+  if (!all(req_cols %in% names(df))) {
+    warning(paste("make_figure_11_anchor_drift: Missing required columns in drift data for", test_id))
+    return(NULL)
+  }
+  
+  # Exact 2025 plotting logic
+  p <- ggplot(df, aes(x = item_id, y = robust_z, color = unstable)) +
+    geom_point(size = 4) +
+    geom_segment(
+      aes(xend = item_id, y = 0, yend = robust_z),
+      color = "black",
+      linewidth = 2
+    ) +
+    geom_text(
+      aes(y = robust_z * 0.4, label = round(robust_z, 2)),
+      color = "blue",
+      size = 3,
+      nudge_x = 0.4
+    ) +
+    scale_y_continuous(breaks = c(-6, -4, -2, 0, 2, 4, 6)) +
+    coord_flip(ylim = c(-6, 6)) +
+    scale_color_manual(
+      name   = "Suggest Removal from Equating (alpha = .01)",
+      labels = c("FALSE", "TRUE"),
+      values = c("black", "red")
+    ) +
+    labs(
+      title = NULL,
+      x = "Item",
+      y = "Robust Z Drift"
+    ) +
+    theme_minimal(base_size = 11) +
+    theme(legend.position = "bottom")
+  
+  return(p)
+}

@@ -293,3 +293,5 @@ extract_napd_cuts <- function(cut_scores_row) {
   # Fallback if columns are missing
   return(numeric(0))
 }
+
+
