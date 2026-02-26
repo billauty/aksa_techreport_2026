@@ -51,22 +51,16 @@ make_table_10_q3_residuals <- function(mirt_model) {
 # ------------------------------------------------------------
 make_table_11_subgroup_reliability <- function(scored_data, demo_data, test_id = NULL) {
   
-  # Safely convert haven_labelled columns to characters using their actual string labels
-  strip_labels <- function(df) {
-    for (col in names(df)) {
-      if (inherits(df[[col]], "haven_labelled")) {
-        df[[col]] <- if (requireNamespace("haven", quietly = TRUE)) {
-          as.character(haven::as_factor(df[[col]]))
-        } else {
-          as.character(df[[col]])
-        }
-      }
-    }
-    df
-  }
+  # 1. Scored Data: Strip haven labels to prevent vctrs crashes, BUT preserve numeric types!
+  scored_data <- as.data.frame(lapply(scored_data, function(x) {
+    if (inherits(x, "haven_labelled")) as.vector(x) else x
+  }), stringsAsFactors = FALSE)
   
-  scored_data <- strip_labels(scored_data)
-  demo_data   <- strip_labels(demo_data)
+  # 2. Demo Data: Convert haven labels to their actual string values (e.g., "Male", "Female")
+  if (requireNamespace("haven", quietly = TRUE)) {
+    demo_data <- haven::as_factor(demo_data)
+  }
+  demo_data <- as.data.frame(lapply(demo_data, as.character), stringsAsFactors = FALSE)
   
   # Coerce SSID to character and trim whitespace before joining
   scored_data$SSID <- trimws(as.character(scored_data$SSID))
@@ -94,7 +88,7 @@ make_table_11_subgroup_reliability <- function(scored_data, demo_data, test_id =
                stringsAsFactors = FALSE)
   )
   
-  # Join ONLY the necessary columns (Note: Added 'IEP' to this list!)
+  # Join ONLY the necessary columns
   demo_cols_to_keep <- intersect(names(demo_data), c("SSID", "SEX", "Gender", "Ethnic", "Ethnicity", "Race", "Disadvantaged", "ED", "LEP", "Homeless", "IEP"))
   joined <- dplyr::left_join(scored_data, demo_data[, demo_cols_to_keep, drop = FALSE], by = "SSID")
   
@@ -103,7 +97,7 @@ make_table_11_subgroup_reliability <- function(scored_data, demo_data, test_id =
     col <- col_names[col_names %in% names(joined)][1]
     if (is.na(col)) return(rows)
     
-    grp_vec <- trimws(as.character(joined[[col]]))
+    grp_vec <- trimws(joined[[col]])
     vals <- unique(grp_vec)
     vals <- sort(vals[!is.na(vals) & vals != ""])
     
@@ -125,12 +119,13 @@ make_table_11_subgroup_reliability <- function(scored_data, demo_data, test_id =
     rows
   }
   
-  rows <- .add_subgroup_rows(rows, "Gender", c("Gender", "SEX"), list(M = "Male", F = "Female"))
+  # Maps include numeric fallbacks ("1", "2") just in case factor conversion misses something
+  rows <- .add_subgroup_rows(rows, "Gender", c("Gender", "SEX"), list(M = "Male", F = "Female", "1" = "Male", "2" = "Female"))
   rows <- .add_subgroup_rows(rows, "Ethnicity", c("Ethnic", "Ethnicity", "Race"))
-  rows <- .add_subgroup_rows(rows, "Disadvantaged", c("Disadvantaged", "ED"), list(Y = "Yes", N = "No"))
-  rows <- .add_subgroup_rows(rows, "LEP", c("LEP"), list(Y = "Yes", N = "No"))
-  rows <- .add_subgroup_rows(rows, "IEP", c("IEP"), list(Y = "Yes", N = "No"))
-  rows <- .add_subgroup_rows(rows, "Homeless", c("Homeless"), list(Y = "Yes", N = "No"))
+  rows <- .add_subgroup_rows(rows, "Disadvantaged", c("Disadvantaged", "ED"), list(Y = "Yes", N = "No", "1" = "Yes", "0" = "No"))
+  rows <- .add_subgroup_rows(rows, "LEP", c("LEP"), list(Y = "Yes", N = "No", "1" = "Yes", "0" = "No"))
+  rows <- .add_subgroup_rows(rows, "IEP", c("IEP"), list(Y = "Yes", N = "No", "1" = "Yes", "0" = "No"))
+  rows <- .add_subgroup_rows(rows, "Homeless", c("Homeless"), list(Y = "Yes", N = "No", "1" = "Yes", "0" = "No"))
   
   rel_df <- do.call(rbind, rows)
   
@@ -162,22 +157,21 @@ make_table_11_subgroup_reliability <- function(scored_data, demo_data, test_id =
 # Table 12 — DIF Analysis: Lord's Delta
 # ------------------------------------------------------------
 make_table_12_dif_lord <- function(scored_data, demo_data, group_col, table_num = 12L, seed = 42) {
-  # Safely convert haven_labelled columns to characters using their actual string labels
-  strip_labels <- function(df) {
-    for (col in names(df)) {
-      if (inherits(df[[col]], "haven_labelled")) {
-        df[[col]] <- if (requireNamespace("haven", quietly = TRUE)) {
-          as.character(haven::as_factor(df[[col]]))
-        } else {
-          as.character(df[[col]])
-        }
-      }
-    }
-    df
-  }
   
-  scored_data <- strip_labels(scored_data)
-  demo_data   <- strip_labels(demo_data)
+  # 1. Scored Data: Strip haven labels but preserve underlying numeric types
+  scored_data <- as.data.frame(lapply(scored_data, function(x) {
+    if (inherits(x, "haven_labelled")) as.vector(x) else x
+  }), stringsAsFactors = FALSE)
+  
+  # 2. Demo Data: Convert haven labels to their actual string values
+  if (requireNamespace("haven", quietly = TRUE)) {
+    demo_data <- haven::as_factor(demo_data)
+  }
+  demo_data <- as.data.frame(lapply(demo_data, as.character), stringsAsFactors = FALSE)
+  
+  # Coerce SSID to character and trim whitespace before joining
+  scored_data$SSID <- trimws(as.character(scored_data$SSID))
+  demo_data$SSID   <- trimws(as.character(demo_data$SSID))
   
   joined <- dplyr::inner_join(scored_data, demo_data, by = "SSID")
   # Drop rows with missing group information
