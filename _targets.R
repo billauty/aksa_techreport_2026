@@ -81,8 +81,8 @@ list(
 
   # ── Subgroup reliability (IRT) ───────────────────────────────────────────────
   tar_target(table_11_irt_reliability,
-             make_table_11_subgroup_reliability(scored_resp, demo_data),
-             pattern = map(scored_resp)),
+             make_table_11_subgroup_reliability(scored_resp, demo_data, test_id = test_ids),
+             pattern = map(scored_resp, test_ids)),
 
   # ── DIF — Lord's Delta (3 demographic groups) ───────────────────────────────
   # Each returns list(table = <flextable>, data = <data.frame>)
