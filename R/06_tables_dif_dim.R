@@ -99,18 +99,20 @@ make_table_11_subgroup_reliability <- function(scored_data, demo_data, test_id =
     # Find which column name exists in joined
     col <- col_names[col_names %in% names(joined)][1]
     if (is.na(col)) return(rows)
-
-    vals <- unique(joined[[col]])
+    
+    # ---> Convert to standard vector to strip haven_labelled class <---
+    grp_vec <- as.character(joined[[col]])
+    
+    vals <- unique(grp_vec)
     vals <- sort(vals[!is.na(vals)])
-
+    
     for (v in vals) {
-      sub_df <- joined[!is.na(joined[[col]]) & joined[[col]] == v, , drop = FALSE]
+      # ---> Use grp_vec for the logical subsetting instead <---
+      sub_df <- joined[!is.na(grp_vec) & grp_vec == v, , drop = FALSE]
       n_sub  <- nrow(sub_df)
       if (n_sub < 10) next
-
-      v_chr <- as.character(v)
-      label <- if (!is.null(value_map) && !is.null(value_map[[v_chr]])) value_map[[v_chr]] else v_chr
-
+      
+      label <- if (!is.null(value_map) && !is.null(value_map[[v]])) value_map[[v]] else as.character(v)
       rows <- c(rows, list(
         data.frame(Category    = category,
                    Group       = label,
