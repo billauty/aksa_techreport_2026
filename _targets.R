@@ -6,6 +6,7 @@ library(CTT)
 library(flextable)
 library(officer)
 library(e1071)
+library(difR)
 
 # Source all R scripts in the R/ directory
 lapply(list.files("R", full.names = TRUE), source)

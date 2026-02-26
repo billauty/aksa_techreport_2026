@@ -43,11 +43,11 @@ assemble_report_content <- function(test_id, table_01, table_02, table_03, table
     fig_03 = list(plot = fig_03,
                   alt_text = "Conditional Standard Error of Measurement (CSEM) plotted across the theta range."),
     fig_04 = list(plot = fig_04,
-                  alt_text = "DIF magnitude and direction by Gender (Lord's Delta)."),
+                  alt_text = "DIF magnitude and direction by Gender (Mantel-Haenszel Delta)."),
     fig_05 = list(plot = fig_05,
-                  alt_text = "DIF magnitude and direction by IEP status (Lord's Delta)."),
+                  alt_text = "DIF magnitude and direction by Economic Disadvantage (Mantel-Haenszel Delta)."),
     fig_06 = list(plot = fig_06,
-                  alt_text = "DIF magnitude and direction by LEP status (Lord's Delta).")
+                  alt_text = "DIF magnitude and direction by Ethnicity (Mantel-Haenszel Delta).")
   )
 
   # Add Figures 7-10 from the list (each element is a ggplot or NULL)

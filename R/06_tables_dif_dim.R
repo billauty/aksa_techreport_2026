@@ -4,6 +4,7 @@ library(tidyr)
 library(flextable)
 library(ggplot2)
 library(CTT)
+library(difR)
 
 # ------------------------------------------------------------
 # Table 10 — Summary of Yen's Q3 Residual Correlations
@@ -152,67 +153,137 @@ make_table_11_subgroup_reliability <- function(scored_data, demo_data, test_id =
 }
 
 # ------------------------------------------------------------
-# Table 12 — DIF Analysis: Lord's Delta
+# Table 12, 13, 14 — DIF Analysis: Mantel-Haenszel
 # ------------------------------------------------------------
-make_table_12_dif_lord <- function(scored_data, demo_data, group_col, table_num = 12L, seed = 42) {
+make_table_12_dif_lord <- function(scored_data, demo_data, group_col, table_num = 12L) {
   
-  # Strip haven labels to prevent vctrs subsetting crashes
-  scored_data <- as.data.frame(lapply(scored_data, function(x) {
-    if (inherits(x, "haven_labelled")) as.numeric(as.character(x)) else as.numeric(as.character(x))
-  }), stringsAsFactors = FALSE)
+  # Ensure plain data frames and clean out labels
+  scored_data <- as.data.frame(scored_data)
+  demo_data <- as.data.frame(demo_data)
+  for (col in names(scored_data)) {
+    attr(scored_data[[col]], "class") <- NULL
+    attr(scored_data[[col]], "labels") <- NULL
+  }
   
-  if (requireNamespace("haven", quietly = TRUE)) demo_data <- haven::as_factor(demo_data)
-  demo_data <- as.data.frame(lapply(demo_data, as.character), stringsAsFactors = FALSE)
-  
-  # Coerce SSID to character and trim whitespace before joining
+  # Join score and demographic data
   scored_data$SSID <- trimws(as.character(scored_data$SSID))
   demo_data$SSID   <- trimws(as.character(demo_data$SSID))
   
-  # Restore numeric type for item columns in scored_data
-  for (col in setdiff(names(scored_data), c("SSID", "complete"))) {
-    scored_data[[col]] <- as.numeric(scored_data[[col]])
-  }
-  
   joined <- dplyr::inner_join(scored_data, demo_data, by = "SSID")
-  # Drop rows with missing group information
-  joined <- joined[!is.na(joined[[group_col]]), , drop = FALSE]
+  
+  # Drop rows missing the target demographic group
+  joined <- joined[!is.na(joined[[group_col]]) & joined[[group_col]] != "", , drop = FALSE]
   
   item_cols <- setdiff(
     names(scored_data)[sapply(scored_data, is.numeric)],
     c("SSID", "complete")
   )
   
-  set.seed(seed)
-  delta_vals <- stats::runif(length(item_cols), min = -1.5, max = 1.5)
+  num_items <- length(item_cols)
   
+  # Set reference and focal groups
+  group_counts <- sort(table(joined[[group_col]]), decreasing = TRUE)
+  
+  # If there is no variation in the group (e.g., all students are Male), DIF cannot run
+  if (length(group_counts) < 2 || nrow(joined) < 30) {
+    dif_df <- data.frame(Item = item_cols, DeltaLord = rep(0, num_items), p_value = rep(1, num_items), ETSClass = rep("A", num_items), Flag = rep(FALSE, num_items), stringsAsFactors = FALSE)
+    ft <- flextable::flextable(dif_df[, c("Item", "DeltaLord", "ETSClass", "Flag")]) |> 
+      flextable::set_header_labels(DeltaLord = "MH \u0394") |> 
+      flextable::set_caption(paste0("Table ", table_num, ": Mantel-Haenszel DIF Analysis by ", group_col, " (Insufficient Subgroup Data)")) |> 
+      flextable::autofit()
+    return(list(table = ft, data = dif_df))
+  }
+  
+  ref_group <- names(group_counts)[1]
+  foc_group <- names(group_counts)[2]
+  
+  # Limit joined data just to the two largest groups for binary MH comparison
+  joined <- joined[joined[[group_col]] %in% c(ref_group, foc_group), , drop = FALSE]
+  
+  # Prepare data for difR::difMH
+  dif_data <- joined[, item_cols, drop = FALSE]
+  dif_data[] <- lapply(dif_data, as.numeric) # ensure pure numeric
+  
+  # Identify items where everyone got it right (1) or everyone got it wrong (0)
+  item_variances <- sapply(dif_data, var, na.rm = TRUE)
+  valid_items <- item_cols[item_variances > 0]
+  
+  # Initialize output vectors with 0s and 1s
+  delta_vals <- rep(0, num_items)
+  names(delta_vals) <- item_cols
+  
+  p_vals <- rep(1, num_items)
+  names(p_vals) <- item_cols
+  
+  # Only run DIF if there are valid items to test
+  if (length(valid_items) > 0 && requireNamespace("difR", quietly = TRUE)) {
+    
+    # Subset Data to just valid items + Append the Group Column for difR
+    dif_subset <- dif_data[, valid_items, drop = FALSE]
+    dif_subset$Group_Var <- ifelse(joined[[group_col]] == ref_group, 0, 1)
+    
+    mh_results <- tryCatch({
+      difR::difMH(Data = dif_subset, group = "Group_Var", focal.name = 1, purify = FALSE)
+    }, error = function(e) {
+      warning(paste("difR failed:", e$message))
+      NULL
+    })
+    
+    if (!is.null(mh_results) && !is.null(mh_results$alphaMH)) {
+      # Safely extract and map the results back to the valid items
+      for (i in seq_along(valid_items)) {
+        itm <- valid_items[i]
+        
+        # Calculate Delta Lord from MH Alpha: -2.35 * ln(alphaMH)
+        alpha_val <- as.numeric(mh_results$alphaMH[i])
+        
+        # Protect against extreme cases where alpha is exactly 0 or infinite
+        if (!is.na(alpha_val) && alpha_val > 0 && is.finite(alpha_val)) {
+          delta_vals[itm] <- -2.35 * log(alpha_val)
+        } else {
+          delta_vals[itm] <- 0 
+        }
+        
+        p_vals[itm] <- as.numeric(mh_results$p.value[i])
+      }
+    }
+  }
+  
+  # Safety check: replace NA/NaN values with 0/1 BEFORE case_when
+  delta_vals[is.na(delta_vals)] <- 0
+  p_vals[is.na(p_vals)] <- 1
+  
+  # Apply ETS Classification Rules for MH D-DIF:
   ets_class <- dplyr::case_when(
-    abs(delta_vals) >= 1.5 ~ "C",
-    abs(delta_vals) >= 1.0 ~ "B",
-    TRUE                   ~ "A"
+    abs(delta_vals) >= 1.5 & p_vals < 0.05 ~ "C",
+    abs(delta_vals) >= 1.0 & p_vals < 0.05 ~ "B",
+    TRUE ~ "A"
   )
   
   dif_df <- data.frame(
     Item      = item_cols,
-    DeltaLord = delta_vals,
+    DeltaLord = as.numeric(delta_vals),
+    p_value   = as.numeric(p_vals),
     ETSClass  = ets_class,
     Flag      = ets_class == "C",
     stringsAsFactors = FALSE
   )
   
-  ft <- flextable(dif_df) |>
-    set_header_labels(
+  # Create Table
+  ft <- flextable::flextable(dif_df[, c("Item", "DeltaLord", "ETSClass", "Flag")]) |>
+    flextable::set_header_labels(
       Item      = "Item",
-      DeltaLord = "\u0394Lord",
+      DeltaLord = "MH \u0394",
       ETSClass  = "ETS Class",
       Flag      = "Flag"
     ) |>
-    colformat_double(j = "DeltaLord", digits = 3) |>
-    theme_vanilla() |>
-    align(align = "right", part = "body") |>
-    align(j = "Item", align = "left", part = "body") |>
-    align(align = "center", part = "header") |>
-    set_caption(caption = paste0("Table ", table_num, ": DIF Analysis \u2014 Lord\u2019s Delta by ", group_col)) |>
-    autofit()
+    flextable::colformat_double(j = "DeltaLord", digits = 3) |>
+    flextable::theme_vanilla() |>
+    flextable::align(align = "right", part = "body") |>
+    flextable::align(j = "Item", align = "left", part = "body") |>
+    flextable::align(align = "center", part = "header") |>
+    flextable::set_caption(caption = paste0("Table ", table_num, ": Mantel-Haenszel DIF Analysis by ", group_col, " (Ref: ", ref_group, ")")) |>
+    flextable::autofit()
   
   list(table = ft, data = dif_df)
 }
@@ -246,7 +317,7 @@ make_figure_04_dif_plot <- function(dif_data, group_name, fig_num = 4L) {
       )
     ) +
     labs(
-      x     = "\u0394Lord (Lord\u2019s Delta)",
+      x     = "MH \u0394 (Mantel-Haenszel)",
       y     = "Item",
       title = paste0("Figure ", fig_num, ": DIF Magnitude and Direction \u2014 ", group_name),
       caption = "Dashed line at \u0394 = 0. Items coloured by ETS DIF classification."
@@ -382,59 +453,29 @@ make_figure_01_item_fit <- function(mirt_model) {
 }
 
 # ------------------------------------------------------------
-# Table 13 — DIF Analysis: Lord's Delta (Group 2 — IEP)
-# Thin wrapper around make_table_12_dif_lord() that uses table
-# number 13 in the caption.  Default group_col is "IEP".
-#
-# Arguments:  see make_table_12_dif_lord().
-# Returns a named list: $table (flextable), $data (data.frame).
+# Table 13 — DIF Analysis: Mantel-Haenszel (Group 2 — Disadvantaged)
 # ------------------------------------------------------------
-make_table_13_dif_lord <- function(scored_data, demo_data,
-                                   group_col = "IEP", seed = 42) {
-  make_table_12_dif_lord(scored_data, demo_data,
-                         group_col = group_col, table_num = 13L, seed = seed)
+make_table_13_dif_lord <- function(scored_data, demo_data, group_col = "Disadvantaged") {
+  make_table_12_dif_lord(scored_data, demo_data, group_col = group_col, table_num = 13L)
 }
 
 # ------------------------------------------------------------
-# Table 14 — DIF Analysis: Lord's Delta (Group 3 — LEP)
-# Thin wrapper around make_table_12_dif_lord() that uses table
-# number 14 in the caption.  Default group_col is "LEP".
-#
-# Arguments:  see make_table_12_dif_lord().
-# Returns a named list: $table (flextable), $data (data.frame).
+# Table 14 — DIF Analysis: Mantel-Haenszel (Group 3 — Ethnicity)
 # ------------------------------------------------------------
-make_table_14_dif_lord <- function(scored_data, demo_data,
-                                   group_col = "LEP", seed = 42) {
-  make_table_12_dif_lord(scored_data, demo_data,
-                         group_col = group_col, table_num = 14L, seed = seed)
+make_table_14_dif_lord <- function(scored_data, demo_data, group_col = "Ethnic") {
+  make_table_12_dif_lord(scored_data, demo_data, group_col = group_col, table_num = 14L)
 }
 
 # ------------------------------------------------------------
-# Figure 5 — DIF Magnitude and Direction (Group 2 — IEP)
-# Thin wrapper around make_figure_04_dif_plot() that sets the
-# figure number to 5.
-#
-# Arguments:
-#   dif_data    - data.frame from make_table_13_dif_lord()$data
-#   group_name  - character label for the focal group (default: "IEP")
-#
-# Returns a ggplot.
+# Figure 5 — DIF Magnitude and Direction (Group 2 — Disadvantaged)
 # ------------------------------------------------------------
-make_figure_05_dif_plot <- function(dif_data, group_name = "IEP") {
+make_figure_05_dif_plot <- function(dif_data, group_name = "Economic Disadvantage") {
   make_figure_04_dif_plot(dif_data, group_name = group_name, fig_num = 5L)
 }
 
 # ------------------------------------------------------------
-# Figure 6 — DIF Magnitude and Direction (Group 3 — LEP)
-# Thin wrapper around make_figure_04_dif_plot() that sets the
-# figure number to 6.
-#
-# Arguments:
-#   dif_data    - data.frame from make_table_14_dif_lord()$data
-#   group_name  - character label for the focal group (default: "LEP")
-#
-# Returns a ggplot.
+# Figure 6 — DIF Magnitude and Direction (Group 3 — Ethnicity)
 # ------------------------------------------------------------
-make_figure_06_dif_plot <- function(dif_data, group_name = "LEP") {
+make_figure_06_dif_plot <- function(dif_data, group_name = "Ethnicity") {
   make_figure_04_dif_plot(dif_data, group_name = group_name, fig_num = 6L)
 }
