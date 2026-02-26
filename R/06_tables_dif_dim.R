@@ -51,24 +51,21 @@ make_table_10_q3_residuals <- function(mirt_model) {
 # ------------------------------------------------------------
 make_table_11_subgroup_reliability <- function(scored_data, demo_data, test_id = NULL) {
   
-  # Strip haven labels to prevent vctrs subsetting crashes
-  scored_data <- as.data.frame(lapply(scored_data, function(x) {
-    if (inherits(x, "haven_labelled")) as.numeric(as.character(x)) else as.numeric(as.character(x))
-  }), stringsAsFactors = FALSE)
+  # Ensure scored_data is a plain data frame
+  scored_data <- as.data.frame(scored_data)
+  demo_data <- as.data.frame(demo_data)
   
-  if (requireNamespace("haven", quietly = TRUE)) demo_data <- haven::as_factor(demo_data)
-  demo_data <- as.data.frame(lapply(demo_data, as.character), stringsAsFactors = FALSE)
+  # Strip any lingering haven labels from items just to be safe
+  for (col in names(scored_data)) {
+    attr(scored_data[[col]], "class")  <- NULL
+    attr(scored_data[[col]], "labels") <- NULL
+  }
   
   # Coerce SSID to character and trim whitespace before joining
   scored_data$SSID <- trimws(as.character(scored_data$SSID))
   demo_data$SSID   <- trimws(as.character(demo_data$SSID))
   
-  # Restore numeric type for item columns in scored_data
-  for (col in setdiff(names(scored_data), c("SSID", "complete"))) {
-    scored_data[[col]] <- as.numeric(scored_data[[col]])
-  }
-  
-  # Identify item columns
+  # Identify item columns (all numeric columns except SSID and complete)
   item_cols <- setdiff(
     names(scored_data)[sapply(scored_data, is.numeric)],
     c("SSID", "complete")
@@ -90,29 +87,28 @@ make_table_11_subgroup_reliability <- function(scored_data, demo_data, test_id =
                stringsAsFactors = FALSE)
   )
   
-  # Join ONLY the necessary columns
-  demo_cols_to_keep <- intersect(names(demo_data), c("SSID", "SEX", "Gender", "Ethnic", "Ethnicity", "Race", "Disadvantaged", "ED", "LEP", "Homeless", "IEP"))
-  joined <- dplyr::left_join(scored_data, demo_data[, demo_cols_to_keep, drop = FALSE], by = "SSID")
+  # Join all demographic columns directly
+  joined <- dplyr::left_join(scored_data, demo_data, by = "SSID")
   
-  # Helper: add subgroup rows for a demographic column
-  .add_subgroup_rows <- function(rows, category, col_names, value_map = NULL) {
-    col <- col_names[col_names %in% names(joined)][1]
-    if (is.na(col)) return(rows)
+  # Helper: Add rows for a specific column. No complex mapping needed because
+  # strings are already "Male", "Female", "Yes", "No", etc.
+  .add_subgroup_rows <- function(rows, category, col_name) {
+    # Check if the column exists in the joined data
+    if (!col_name %in% names(joined)) return(rows)
     
-    grp_vec <- trimws(joined[[col]])
+    # Grab the string values, drop NAs/blanks
+    grp_vec <- trimws(as.character(joined[[col_name]]))
     vals <- unique(grp_vec)
     vals <- sort(vals[!is.na(vals) & vals != ""])
     
     for (v in vals) {
       sub_df <- joined[!is.na(grp_vec) & grp_vec == v, , drop = FALSE]
       n_sub  <- nrow(sub_df)
-      if (n_sub < 10) next
-      
-      label <- if (!is.null(value_map) && !is.null(value_map[[v]])) value_map[[v]] else v
+      if (n_sub < 10) next  # Exclude subgroups smaller than 10
       
       rows <- c(rows, list(
         data.frame(Category    = category,
-                   Group       = label,
+                   Group       = v,        # Use the string directly!
                    nStudents   = n_sub,
                    Reliability = .kr20(sub_df),
                    stringsAsFactors = FALSE)
@@ -121,12 +117,13 @@ make_table_11_subgroup_reliability <- function(scored_data, demo_data, test_id =
     rows
   }
   
-  rows <- .add_subgroup_rows(rows, "Gender", c("Gender", "SEX"), list(M = "Male", F = "Female", "1" = "Male", "2" = "Female"))
-  rows <- .add_subgroup_rows(rows, "Ethnicity", c("Ethnic", "Ethnicity", "Race"))
-  rows <- .add_subgroup_rows(rows, "Disadvantaged", c("Disadvantaged", "ED"), list(Y = "Yes", N = "No", "1" = "Yes", "0" = "No"))
-  rows <- .add_subgroup_rows(rows, "LEP", c("LEP"), list(Y = "Yes", N = "No", "1" = "Yes", "0" = "No"))
-  rows <- .add_subgroup_rows(rows, "IEP", c("IEP"), list(Y = "Yes", N = "No", "1" = "Yes", "0" = "No"))
-  rows <- .add_subgroup_rows(rows, "Homeless", c("Homeless"), list(Y = "Yes", N = "No", "1" = "Yes", "0" = "No"))
+  # Call the helper exactly using the names we generated in R/01_data_prep.R
+  rows <- .add_subgroup_rows(rows, "Gender", "Gender")
+  rows <- .add_subgroup_rows(rows, "Ethnicity", "Ethnic")
+  rows <- .add_subgroup_rows(rows, "Disadvantaged", "Disadvantaged")
+  rows <- .add_subgroup_rows(rows, "LEP", "LEP")
+  rows <- .add_subgroup_rows(rows, "IEP", "IEP")
+  rows <- .add_subgroup_rows(rows, "Homeless", "Homeless")
   
   rel_df <- do.call(rbind, rows)
   

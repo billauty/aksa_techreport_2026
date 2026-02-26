@@ -117,18 +117,69 @@ score_test_responses <- function(resp_df, key_vector) {
 # Arguments:
 #   data_dir  - path to the top-level data directory (default: "data")
 #
-# Returns a data.frame.  If the file does not yet exist, returns an empty
-# data.frame with the expected column structure so the pipeline can still
-# be assembled.
+# Returns a cleanly formatted data.frame with SSIDs and demographic subgroups.
 load_demo_data <- function(data_dir = "data") {
-  path <- file.path(data_dir, "raw/demographics.rds")
-  if (file.exists(path)) {
-    readRDS(path)
-  } else {
-    data.frame(SSID = character(0), SEX = character(0),
-               IEP  = character(0), LEP = character(0),
-               stringsAsFactors = FALSE)
+  library(dplyr)
+  library(haven)
+  library(stringr)
+  
+  path <- file.path(data_dir, "raw/ksa_2025_secure.sas7bdat")
+  
+  if (!file.exists(path)) {
+    warning("Could not find ", path, " - returning empty placeholder.")
+    return(data.frame(SSID = character(0), SEX = character(0),
+                      IEP  = character(0), LEP = character(0),
+                      stringsAsFactors = FALSE))
   }
+  
+  # Helper to pad SSID
+  pad_ssid <- function(x) stringr::str_pad(x, 12, pad = "0")
+  
+  # Read and format exactly like the 2024 inspection script!
+  demo_raw <- haven::read_sas(path) |>
+    dplyr::filter(Alt_Flag == "Y") |>
+    dplyr::mutate(
+      SSID = pad_ssid(SSID),
+      
+      # Clean formatting to explicitly match Table requirements
+      Gender = dplyr::case_when(
+        SEX == "F" ~ "Female",
+        SEX == "M" ~ "Male",
+        TRUE ~ NA_character_
+      ),
+      Ethnic = dplyr::case_when(
+        Ethnic == "W" ~ "White",
+        Ethnic == "H" ~ "Hispanic",
+        Ethnic == "B" ~ "Black",
+        Ethnic == "O" ~ "Other",
+        TRUE ~ "Other"
+      ),
+      Disadvantaged = dplyr::case_when(
+        Lunch %in% c("1", "2") ~ "Yes",
+        Lunch == "3"           ~ "No",
+        TRUE                   ~ NA_character_
+      ),
+      LEP = dplyr::if_else(LEP == "Y", "Yes", "No", NA_character_),
+      Homeless = dplyr::if_else(Homeless == "Y", "Yes", "No", NA_character_),
+      
+      # Assuming IEP follows similar logic if present in raw data
+      IEP = dplyr::if_else(IEP == "Y", "Yes", "No", NA_character_) 
+    ) |>
+    # Select just the demographics (we drop the scale scores here since we just need the roster)
+    dplyr::select(
+      SSID, SEX, Gender, Ethnic, Disadvantaged, LEP, Homeless, IEP
+    ) |>
+    dplyr::distinct() |>
+    # Strip all haven_labelled classes out permanently
+    as.data.frame()
+  
+  # Strip attributes just to be perfectly safe against vctrs
+  for (col in names(demo_raw)) {
+    attr(demo_raw[[col]], "class")  <- NULL
+    attr(demo_raw[[col]], "labels") <- NULL
+  }
+  
+  demo_raw
 }
 
 # Load Learner Characteristics Inventory (LCI) data used for Figures 7-10.
