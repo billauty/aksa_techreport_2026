@@ -126,14 +126,14 @@ list(
   
   # ── Classification accuracy / consistency ───────────────────────────────────
   tar_target(table_15_class_accuracy,
-             make_table_15_class_accuracy(kr20, cut_score_val),
-             pattern = map(kr20, cut_score_val)),
+             make_table_15_class_accuracy(mirt_model, scored_resp, napd_cuts),
+             pattern = map(mirt_model, scored_resp, napd_cuts)),
   tar_target(table_16_decision_consistency,
-             make_table_16_decision_consistency(kr20, cut_score_val),
-             pattern = map(kr20, cut_score_val)),
+             make_table_16_decision_consistency(mirt_model, scored_resp, napd_cuts),
+             pattern = map(mirt_model, scored_resp, napd_cuts)),
   tar_target(table_17_napd_accuracy,
-             make_table_17_napd_accuracy(cut_scores_row, kr20),
-             pattern = map(cut_scores_row, kr20)),
+             make_table_17_napd_accuracy(mirt_model, scored_resp, napd_cuts),
+             pattern = map(mirt_model, scored_resp, napd_cuts)),
   
   # Learner Characteristics figures (one list per test; one ggplot per trait)
   tar_target(figs_07_10_lci, {
