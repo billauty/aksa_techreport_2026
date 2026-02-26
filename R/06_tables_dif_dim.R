@@ -57,10 +57,11 @@ make_table_10_q3_residuals <- function(mirt_model) {
 #   demo_data    - data.frame with columns SSID and demographic
 #                  variables (SEX/Gender, Ethnic/Ethnicity/Race,
 #                  Disadvantaged/ED, LEP, Homeless).
+#   test_id      - optional character string appended to the table caption.
 #
 # Returns a flextable with columns: Category, Group, nStudents, Reliability.
 # ------------------------------------------------------------
-make_table_11_subgroup_reliability <- function(scored_data, demo_data) {
+make_table_11_subgroup_reliability <- function(scored_data, demo_data, test_id = NULL) {
   # Coerce SSID to character and trim whitespace before joining
   scored_data$SSID <- trimws(as.character(scored_data$SSID))
   demo_data$SSID   <- trimws(as.character(demo_data$SSID))
@@ -147,6 +148,11 @@ make_table_11_subgroup_reliability <- function(scored_data, demo_data) {
 
   rel_df <- do.call(rbind, rows)
 
+  caption_text <- "Table 11: Reliability for All students and Subgroups of Sufficient Size"
+  if (!is.null(test_id)) {
+    caption_text <- paste0(caption_text, " (", test_id, ")")
+  }
+
   ft <- flextable(rel_df) |>
     set_header_labels(
       Category    = "Category",
@@ -160,7 +166,7 @@ make_table_11_subgroup_reliability <- function(scored_data, demo_data) {
     align(align = "right", part = "body") |>
     align(j = c("Category", "Group"), align = "left", part = "body") |>
     align(align = "center", part = "header") |>
-    set_caption(caption = "Table 11: Reliability for All students and Subgroups of Sufficient Size") |>
+    set_caption(caption = caption_text) |>
     autofit()
 
   ft
