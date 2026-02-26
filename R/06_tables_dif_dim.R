@@ -51,22 +51,24 @@ make_table_10_q3_residuals <- function(mirt_model) {
 # ------------------------------------------------------------
 make_table_11_subgroup_reliability <- function(scored_data, demo_data, test_id = NULL) {
   
-  # 1. Scored Data: Strip haven labels to prevent vctrs crashes, BUT preserve numeric types!
+  # Strip haven labels to prevent vctrs subsetting crashes
   scored_data <- as.data.frame(lapply(scored_data, function(x) {
-    if (inherits(x, "haven_labelled")) as.vector(x) else x
+    if (inherits(x, "haven_labelled")) as.numeric(as.character(x)) else as.numeric(as.character(x))
   }), stringsAsFactors = FALSE)
   
-  # 2. Demo Data: Convert haven labels to their actual string values (e.g., "Male", "Female")
-  if (requireNamespace("haven", quietly = TRUE)) {
-    demo_data <- haven::as_factor(demo_data)
-  }
+  if (requireNamespace("haven", quietly = TRUE)) demo_data <- haven::as_factor(demo_data)
   demo_data <- as.data.frame(lapply(demo_data, as.character), stringsAsFactors = FALSE)
   
   # Coerce SSID to character and trim whitespace before joining
   scored_data$SSID <- trimws(as.character(scored_data$SSID))
   demo_data$SSID   <- trimws(as.character(demo_data$SSID))
   
-  # Identify item columns (all numeric columns except SSID and complete)
+  # Restore numeric type for item columns in scored_data
+  for (col in setdiff(names(scored_data), c("SSID", "complete"))) {
+    scored_data[[col]] <- as.numeric(scored_data[[col]])
+  }
+  
+  # Identify item columns
   item_cols <- setdiff(
     names(scored_data)[sapply(scored_data, is.numeric)],
     c("SSID", "complete")
@@ -119,7 +121,6 @@ make_table_11_subgroup_reliability <- function(scored_data, demo_data, test_id =
     rows
   }
   
-  # Maps include numeric fallbacks ("1", "2") just in case factor conversion misses something
   rows <- .add_subgroup_rows(rows, "Gender", c("Gender", "SEX"), list(M = "Male", F = "Female", "1" = "Male", "2" = "Female"))
   rows <- .add_subgroup_rows(rows, "Ethnicity", c("Ethnic", "Ethnicity", "Race"))
   rows <- .add_subgroup_rows(rows, "Disadvantaged", c("Disadvantaged", "ED"), list(Y = "Yes", N = "No", "1" = "Yes", "0" = "No"))
@@ -158,20 +159,22 @@ make_table_11_subgroup_reliability <- function(scored_data, demo_data, test_id =
 # ------------------------------------------------------------
 make_table_12_dif_lord <- function(scored_data, demo_data, group_col, table_num = 12L, seed = 42) {
   
-  # 1. Scored Data: Strip haven labels but preserve underlying numeric types
+  # Strip haven labels to prevent vctrs subsetting crashes
   scored_data <- as.data.frame(lapply(scored_data, function(x) {
-    if (inherits(x, "haven_labelled")) as.vector(x) else x
+    if (inherits(x, "haven_labelled")) as.numeric(as.character(x)) else as.numeric(as.character(x))
   }), stringsAsFactors = FALSE)
   
-  # 2. Demo Data: Convert haven labels to their actual string values
-  if (requireNamespace("haven", quietly = TRUE)) {
-    demo_data <- haven::as_factor(demo_data)
-  }
+  if (requireNamespace("haven", quietly = TRUE)) demo_data <- haven::as_factor(demo_data)
   demo_data <- as.data.frame(lapply(demo_data, as.character), stringsAsFactors = FALSE)
   
   # Coerce SSID to character and trim whitespace before joining
   scored_data$SSID <- trimws(as.character(scored_data$SSID))
   demo_data$SSID   <- trimws(as.character(demo_data$SSID))
+  
+  # Restore numeric type for item columns in scored_data
+  for (col in setdiff(names(scored_data), c("SSID", "complete"))) {
+    scored_data[[col]] <- as.numeric(scored_data[[col]])
+  }
   
   joined <- dplyr::inner_join(scored_data, demo_data, by = "SSID")
   # Drop rows with missing group information
