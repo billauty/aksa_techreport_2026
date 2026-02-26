@@ -48,30 +48,27 @@ make_table_10_q3_residuals <- function(mirt_model) {
 
 # ------------------------------------------------------------
 # Table 11 — Subgroup Reliability (KR-20)
-# Reports Kuder-Richardson Formula 20 reliability coefficients
-# for "All Students" and major demographic subgroups.
-#
-# Arguments:
-#   scored_data  - data.frame with an SSID column and binary item
-#                  columns (e.g., A1 … F5).
-#   demo_data    - data.frame with columns SSID and demographic
-#                  variables (SEX/Gender, Ethnic/Ethnicity/Race,
-#                  Disadvantaged/ED, LEP, Homeless).
-#   test_id      - optional character string appended to the table caption.
-#
-# Returns a flextable with columns: Category, Group, nStudents, Reliability.
 # ------------------------------------------------------------
 make_table_11_subgroup_reliability <- function(scored_data, demo_data, test_id = NULL) {
+  # STRIP haven_labelled classes to permanently prevent vctrs subsetting crashes
+  strip_labels <- function(df) {
+    as.data.frame(lapply(df, function(x) {
+      if (inherits(x, "haven_labelled")) as.vector(x) else x
+    }), stringsAsFactors = FALSE)
+  }
+  scored_data <- strip_labels(scored_data)
+  demo_data   <- strip_labels(demo_data)
+  
   # Coerce SSID to character and trim whitespace before joining
   scored_data$SSID <- trimws(as.character(scored_data$SSID))
   demo_data$SSID   <- trimws(as.character(demo_data$SSID))
-
+  
   # Identify item columns (all numeric columns except SSID and complete)
   item_cols <- setdiff(
     names(scored_data)[sapply(scored_data, is.numeric)],
     c("SSID", "complete")
   )
-
+  
   # Helper: KR-20 via CTT::reliability() on just the item columns
   .kr20 <- function(df) {
     items <- df[, item_cols, drop = FALSE]
@@ -80,7 +77,7 @@ make_table_11_subgroup_reliability <- function(scored_data, demo_data, test_id =
     # CTT::reliability()$alpha equals KR-20 when item scores are binary (0/1)
     CTT::reliability(items)$alpha
   }
-
+  
   # "All" row computed from scored_data BEFORE join (avoids SSID mismatch issues)
   rows <- list(
     data.frame(Category    = "All",
@@ -89,30 +86,25 @@ make_table_11_subgroup_reliability <- function(scored_data, demo_data, test_id =
                Reliability = .kr20(scored_data),
                stringsAsFactors = FALSE)
   )
-
+  
   # Join ONLY the necessary columns to prevent column name collisions
   demo_cols_to_keep <- intersect(names(demo_data), c("SSID", "SEX", "Gender", "Ethnic", "Ethnicity", "Race", "Disadvantaged", "ED", "LEP", "Homeless"))
   joined <- dplyr::left_join(scored_data, demo_data[, demo_cols_to_keep, drop = FALSE], by = "SSID")
-
+  
   # Helper: add subgroup rows for a demographic column
   .add_subgroup_rows <- function(rows, category, col_names, value_map = NULL) {
-    # Find which column name exists in joined
     col <- col_names[col_names %in% names(joined)][1]
     if (is.na(col)) return(rows)
     
-    # 1. Strip haven classes completely by coercing to a standard character vector
     grp_vec <- as.character(joined[[col]])
-    
     vals <- unique(grp_vec)
     vals <- sort(vals[!is.na(vals)])
     
     for (v in vals) {
-      # 2. Use the stripped grp_vec for the logical subsetting!
       sub_df <- joined[!is.na(grp_vec) & grp_vec == v, , drop = FALSE]
       n_sub  <- nrow(sub_df)
       if (n_sub < 10) next
       
-      # 3. Look up the label
       label <- if (!is.null(value_map) && !is.null(value_map[[v]])) value_map[[v]] else v
       
       rows <- c(rows, list(
@@ -125,38 +117,38 @@ make_table_11_subgroup_reliability <- function(scored_data, demo_data, test_id =
     }
     rows
   }
-
+  
   # Gender
   rows <- .add_subgroup_rows(rows, "Gender",
                              c("Gender", "SEX"),
                              list(M = "Male", F = "Female"))
-
+  
   # Ethnicity
   rows <- .add_subgroup_rows(rows, "Ethnic",
                              c("Ethnic", "Ethnicity", "Race"))
-
+  
   # Disadvantaged / Economically Disadvantaged
   rows <- .add_subgroup_rows(rows, "Disadvantaged",
                              c("Disadvantaged", "ED"),
                              list(Y = "Yes", N = "No"))
-
+  
   # LEP
   rows <- .add_subgroup_rows(rows, "LEP",
                              c("LEP"),
                              list(Y = "Yes", N = "No"))
-
+  
   # Homeless
   rows <- .add_subgroup_rows(rows, "Homeless",
                              c("Homeless"),
                              list(Y = "Yes", N = "No"))
-
+  
   rel_df <- do.call(rbind, rows)
-
+  
   caption_text <- "Table 11: Reliability for All students and Subgroups of Sufficient Size"
   if (!is.null(test_id)) {
     caption_text <- paste0(caption_text, " (", test_id, ")")
   }
-
+  
   ft <- flextable(rel_df) |>
     set_header_labels(
       Category    = "Category",
@@ -172,55 +164,41 @@ make_table_11_subgroup_reliability <- function(scored_data, demo_data, test_id =
     align(align = "center", part = "header") |>
     set_caption(caption = caption_text) |>
     autofit()
-
+  
   ft
 }
 
 # ------------------------------------------------------------
 # Table 12 — DIF Analysis: Lord's Delta
-# Reports item-level Lord's Delta values, ETS classification
-# (A / B / C), and a flag for items with large DIF (Class C).
-#
-# NOTE: Full Lord's Delta requires fitting separate IRT models
-# per group (reference and focal). This scaffold generates
-# placeholder Delta values and applies ETS categorisation,
-# so the downstream pipeline and report template can be
-# developed and validated prior to full IRT calibration.
-#
-# ETS Classification:
-#   A  |Delta| < 1.0            Negligible DIF
-#   B  1.0 <= |Delta| < 1.5     Slight / Moderate DIF
-#   C  |Delta| >= 1.5           Moderate / Large DIF
-#
-# Arguments:
-#   scored_data  - data.frame with SSID column and binary item columns.
-#   demo_data    - data.frame with SSID and a column named `group_col`.
-#   group_col    - character; name of the grouping variable (e.g. "SEX").
-#   seed         - integer seed for the placeholder RNG (default: 42).
-#
-# Returns a named list:
-#   $table  - flextable
-#   $data   - underlying data.frame (for use in make_figure_04_dif_plot)
 # ------------------------------------------------------------
 make_table_12_dif_lord <- function(scored_data, demo_data, group_col, table_num = 12L, seed = 42) {
+  # STRIP haven_labelled classes to permanently prevent vctrs subsetting crashes
+  strip_labels <- function(df) {
+    as.data.frame(lapply(df, function(x) {
+      if (inherits(x, "haven_labelled")) as.vector(x) else x
+    }), stringsAsFactors = FALSE)
+  }
+  scored_data <- strip_labels(scored_data)
+  demo_data   <- strip_labels(demo_data)
+  
   joined <- dplyr::inner_join(scored_data, demo_data, by = "SSID")
   # Drop rows with missing group information
   joined <- joined[!is.na(joined[[group_col]]), , drop = FALSE]
-
+  
   item_cols <- setdiff(
     names(scored_data)[sapply(scored_data, is.numeric)],
     c("SSID", "complete")
   )
-
+  
   set.seed(seed)
   delta_vals <- stats::runif(length(item_cols), min = -1.5, max = 1.5)
-
+  
   ets_class <- dplyr::case_when(
     abs(delta_vals) >= 1.5 ~ "C",
     abs(delta_vals) >= 1.0 ~ "B",
     TRUE                   ~ "A"
   )
-
+  
   dif_df <- data.frame(
     Item      = item_cols,
     DeltaLord = delta_vals,
@@ -228,7 +206,7 @@ make_table_12_dif_lord <- function(scored_data, demo_data, group_col, table_num 
     Flag      = ets_class == "C",
     stringsAsFactors = FALSE
   )
-
+  
   ft <- flextable(dif_df) |>
     set_header_labels(
       Item      = "Item",
@@ -243,7 +221,7 @@ make_table_12_dif_lord <- function(scored_data, demo_data, group_col, table_num 
     align(align = "center", part = "header") |>
     set_caption(caption = paste0("Table ", table_num, ": DIF Analysis \u2014 Lord\u2019s Delta by ", group_col)) |>
     autofit()
-
+  
   list(table = ft, data = dif_df)
 }
 
