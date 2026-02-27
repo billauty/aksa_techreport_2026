@@ -190,8 +190,13 @@ load_demo_data <- function(data_dir = "data") {
 # Returns a data.frame.  If the file does not yet exist, returns an empty
 # data.frame with just an SSID column so the pipeline can still be assembled.
 load_lci_data <- function(data_dir = "data") {
-  rds_path <- file.path(data_dir, "raw/Learner_Characteristics_Inventory_24_25.rds")
-  if (file.exists(rds_path)) return(readRDS(rds_path))
+  # Load the Excel file directly using readxl
+  xlsx_path <- file.path(data_dir, "raw/Learner_Characteristics_Inventory_24_25.xlsx")
+  if (file.exists(xlsx_path)) {
+    return(readxl::read_excel(xlsx_path))
+  }
+  
+  # Fallback just in case
   data.frame(SSID = character(0), stringsAsFactors = FALSE)
 }
 
@@ -205,7 +210,8 @@ load_lci_data <- function(data_dir = "data") {
 #
 # Returns a named list.  Returns an empty list if the file does not exist.
 load_drift_data <- function(data_dir = "data") {
-  path <- file.path(data_dir, "raw/anchor_drift.rds")
+  # Pointing to the correct processed file path!
+  path <- file.path(data_dir, "processed/drift_data.rds")
   if (file.exists(path)) readRDS(path) else list()
 }
 
