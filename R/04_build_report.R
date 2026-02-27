@@ -21,6 +21,24 @@ add_report_figure <- function(doc, fig_obj) {
   return(doc)
 }
 
+# Helper to apply density styling and pagination rules to tables
+apply_table_style <- function(ft, is_table_5 = FALSE) {
+  if (is.null(ft)) return(NULL)
+  if (!inherits(ft, "flextable")) return(ft)
+  
+  # Ensure the table doesn't split awkwardly across pages 
+  ft <- flextable::set_table_properties(ft, layout = "autofit")
+  ft <- flextable::paginate(ft, init = TRUE, hdr_ftr = TRUE)
+  
+  if (!is_table_5) {
+    # Reduce row height/padding on all tables EXCEPT Table 5
+    ft <- flextable::padding(ft, padding = 1, part = "all")
+    ft <- flextable::line_spacing(ft, space = 1, part = "all")
+  }
+  
+  return(ft)
+}
+
 # Create a blank intro Word document and return its file path.
 # Used as the intro_docx argument to create_accessible_yearbook() when no
 # pre-rendered Quarto intro document is available.
@@ -131,98 +149,116 @@ assemble_report_content <- function(test_id, table_01, table_02, table_03, table
 create_accessible_yearbook <- function(test_content_objects, intro_docx) {
   doc <- officer::read_docx(intro_docx)
 
-  # Normalize: allow a single content object or a list of objects
   if (!is.null(test_content_objects[["tables"]])) {
     test_content_objects <- list(test_content_objects)
   }
 
   for (content in test_content_objects) {
     
-    # ── SECTION 1: Test Title & Overall Summaries ──────────────────────────
-    doc <- officer::body_add_par(doc, paste("Test Characteristics:", content$test_id), style = "heading 1")
+    # Pre-process styling for all tables in this test's content
+    for (tbl_name in names(content$tables)) {
+      is_t5 <- (tbl_name == "table_05")
+      content$tables[[tbl_name]] <- apply_table_style(content$tables[[tbl_name]], is_t5)
+    }
+
+    # =========================================================================
+    # 1. OVERALL TEST SUMMARY & DEMOGRAPHICS
+    # =========================================================================
+    doc <- officer::body_add_par(doc, paste("Test Report:", content$test_id), style = "heading 1")
+    
     doc <- flextable::body_add_flextable(doc, content$tables$table_01)
     doc <- add_blank_line(doc)
     doc <- flextable::body_add_flextable(doc, content$tables$table_02)
-
-    doc <- officer::body_add_break(doc) # Force new page
-
-    # ── SECTION 2: Item Statistics & Wright Map ────────────────────────────
-    doc <- officer::body_add_par(doc, "Item Level Statistics", style = "heading 2")
-    doc <- add_report_figure(doc, content$figures$fig_02)
-    doc <- add_blank_line(doc)
+    doc <- officer::body_add_break(doc)
+    
+    # =========================================================================
+    # 2. SCALE SCORE DESCRIPTIVE STATISTICS
+    # =========================================================================
+    doc <- officer::body_add_par(doc, "Scale Score Descriptives", style = "heading 2")
+    
     doc <- flextable::body_add_flextable(doc, content$tables$table_03)
-
-    doc <- officer::body_add_break(doc)
-
-    # ── SECTION 3: DIF Analysis (Tables and Plots Together!) ───────────────
-    doc <- officer::body_add_par(doc, "Differential Item Functioning (DIF)", style = "heading 2")
-
-    doc <- officer::body_add_par(doc, "DIF by Gender", style = "heading 3")
-    doc <- flextable::body_add_flextable(doc, content$tables$table_12)
-    doc <- add_report_figure(doc, content$figures$fig_04)
-    doc <- officer::body_add_break(doc)
-
-    doc <- officer::body_add_par(doc, "DIF by Economic Disadvantage", style = "heading 3")
-    doc <- flextable::body_add_flextable(doc, content$tables$table_13)
-    doc <- add_report_figure(doc, content$figures$fig_05)
-    doc <- officer::body_add_break(doc)
-
-    # ── SECTION 4: Additional Tables ───────────────────────────────────────
-    doc <- officer::body_add_par(doc, "Additional Statistics", style = "heading 2")
-
-    doc <- officer::body_add_par(doc, "Score Distributions", style = "heading 3")
+    doc <- add_blank_line(doc)
     doc <- flextable::body_add_flextable(doc, content$tables$table_04)
     doc <- add_blank_line(doc)
-    doc <- flextable::body_add_flextable(doc, content$tables$table_05)
-    doc <- officer::body_add_break(doc)
-
-    doc <- officer::body_add_par(doc, "IRT Model Statistics", style = "heading 3")
-    doc <- flextable::body_add_flextable(doc, content$tables$table_06)
-    doc <- add_blank_line(doc)
-    doc <- flextable::body_add_flextable(doc, content$tables$table_07)
-    doc <- add_blank_line(doc)
-    doc <- flextable::body_add_flextable(doc, content$tables$table_08)
-    doc <- add_blank_line(doc)
-    doc <- flextable::body_add_flextable(doc, content$tables$table_09)
-    doc <- officer::body_add_break(doc)
-
-    doc <- officer::body_add_par(doc, "Model Fit and Reliability", style = "heading 3")
-    doc <- flextable::body_add_flextable(doc, content$tables$table_10)
-    doc <- add_blank_line(doc)
-    doc <- flextable::body_add_flextable(doc, content$tables$table_11)
-    doc <- officer::body_add_break(doc)
-
-    doc <- officer::body_add_par(doc, "DIF by Ethnicity", style = "heading 3")
-    doc <- flextable::body_add_flextable(doc, content$tables$table_14)
-    doc <- officer::body_add_break(doc)
-
-    doc <- officer::body_add_par(doc, "Classification Accuracy and Consistency", style = "heading 3")
     doc <- flextable::body_add_flextable(doc, content$tables$table_15)
     doc <- add_blank_line(doc)
     doc <- flextable::body_add_flextable(doc, content$tables$table_16)
     doc <- add_blank_line(doc)
     doc <- flextable::body_add_flextable(doc, content$tables$table_17)
+    
+    # Explicit page break before Section 3 / Table 5
+    doc <- officer::body_add_break(doc)
+    
+    # =========================================================================
+    # 3. RELIABILITY & STANDARD ERROR
+    # =========================================================================
+    doc <- officer::body_add_par(doc, "Reliability and Standard Error", style = "heading 2")
+    
+    doc <- flextable::body_add_flextable(doc, content$tables$table_05)
+    doc <- add_blank_line(doc)
+    doc <- flextable::body_add_flextable(doc, content$tables$table_06)
+    doc <- add_report_figure(doc, content$figures$fig_03)
+    doc <- officer::body_add_break(doc)
+    
+    # =========================================================================
+    # 4. ITEM PARAMETERS & TEST ALIGNMENT (IRT/CTT)
+    # =========================================================================
+    doc <- officer::body_add_par(doc, "Item Statistics and Model Fit", style = "heading 2")
+    
+    doc <- add_report_figure(doc, content$figures$fig_02)
+    doc <- add_blank_line(doc)
+    doc <- flextable::body_add_flextable(doc, content$tables$table_07)
+    doc <- add_blank_line(doc)
+    doc <- add_report_figure(doc, content$figures$fig_01)
+    doc <- add_blank_line(doc)
+    doc <- flextable::body_add_flextable(doc, content$tables$table_08)
+    doc <- add_blank_line(doc)
+    doc <- flextable::body_add_flextable(doc, content$tables$table_09)
+    doc <- officer::body_add_break(doc)
+    
+    # =========================================================================
+    # 5. DIFFERENTIAL ITEM FUNCTIONING (DIF)
+    # =========================================================================
+    doc <- officer::body_add_par(doc, "Differential Item Functioning (DIF)", style = "heading 2")
+    
+    doc <- officer::body_add_par(doc, "DIF by Gender", style = "heading 3")
+    doc <- flextable::body_add_flextable(doc, content$tables$table_12)
+    doc <- add_report_figure(doc, content$figures$fig_04)
+    doc <- officer::body_add_break(doc)
+    
+    doc <- officer::body_add_par(doc, "DIF by Economic Disadvantage", style = "heading 3")
+    doc <- flextable::body_add_flextable(doc, content$tables$table_13)
+    doc <- add_report_figure(doc, content$figures$fig_05)
+    doc <- officer::body_add_break(doc)
+    
+    doc <- officer::body_add_par(doc, "DIF by Ethnicity", style = "heading 3")
+    doc <- flextable::body_add_flextable(doc, content$tables$table_14)
+    doc <- add_report_figure(doc, content$figures$fig_06)
     doc <- officer::body_add_break(doc)
 
-    # ── SECTION 5: Additional Figures ──────────────────────────────────────
-    doc <- officer::body_add_par(doc, "Additional Figures", style = "heading 2")
-    doc <- add_report_figure(doc, content$figures$fig_01)
-    doc <- add_report_figure(doc, content$figures$fig_03)
-    doc <- add_report_figure(doc, content$figures$fig_06)
+    # =========================================================================
+    # 6. EQUATING & ANCHOR ITEMS
+    # =========================================================================
+    doc <- officer::body_add_par(doc, "Equating and Anchor Drift", style = "heading 2")
+    
+    doc <- flextable::body_add_flextable(doc, content$tables$table_10)
+    doc <- add_blank_line(doc)
+    doc <- flextable::body_add_flextable(doc, content$tables$table_11)
     doc <- add_report_figure(doc, content$figures$fig_11)
     doc <- officer::body_add_break(doc)
-
-    # ── SECTION 6: Learner Characteristics ─────────────────────────────────
-    doc <- officer::body_add_par(doc, "Learner Characteristics Distributions", style = "heading 2")
-
+    
+    # =========================================================================
+    # 7. LEARNER CHARACTERISTICS (LCI) DISTRIBUTIONS
+    # =========================================================================
+    doc <- officer::body_add_par(doc, "Learner Characteristics Inventory (LCI)", style = "heading 2")
+    
     doc <- add_report_figure(doc, content$figures$fig_07)
     doc <- add_report_figure(doc, content$figures$fig_08)
     doc <- officer::body_add_break(doc)
-
     doc <- add_report_figure(doc, content$figures$fig_09)
     doc <- add_report_figure(doc, content$figures$fig_10)
-
-    # --- Create a unique page footer for this test's section ---
+    
+    # --- FOOTER LOGIC --------------------------------------------------------
     footer_block <- officer::block_list(
       officer::fpar(officer::ftext(paste("Test:", content$test_id)))
     )
@@ -236,7 +272,6 @@ create_accessible_yearbook <- function(test_content_objects, intro_docx) {
         )
       )
     )
-    # ---------------------------------------------------------------------
   }
   
   out_path <- "reports/Final_Technical_Report_2026.docx"
