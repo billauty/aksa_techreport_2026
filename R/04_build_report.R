@@ -2,6 +2,25 @@ library(officer)
 library(flextable)
 library(ggplot2)
 
+# Helper to add a blank line
+add_blank_line <- function(doc) {
+  officer::body_add_par(doc, "", style = "Normal")
+}
+
+# Helper to cleanly insert a single figure from the content list
+add_report_figure <- function(doc, fig_obj) {
+  if (is.null(fig_obj)) return(doc) # Skip safely if NULL (like missing drift plots)
+
+  tmp_fig <- tempfile(fileext = ".png")
+  suppressMessages(
+    ggplot2::ggsave(tmp_fig, plot = fig_obj$plot, width = 6.5, height = 4.5, dpi = 300, bg = "white")
+  )
+
+  ext_img <- officer::external_img(src = tmp_fig, width = 6.5, height = 4.5, alt = fig_obj$alt_text)
+  doc <- officer::body_add_fpar(doc, officer::fpar(ext_img))
+  return(doc)
+}
+
 # Create a blank intro Word document and return its file path.
 # Used as the intro_docx argument to create_accessible_yearbook() when no
 # pre-rendered Quarto intro document is available.
@@ -119,40 +138,90 @@ create_accessible_yearbook <- function(test_content_objects, intro_docx) {
 
   for (content in test_content_objects) {
     
-    # Embed all tables
-    for (tbl in content$tables) {
-      doc <- flextable::body_add_flextable(doc, tbl)
-    }
+    # ── SECTION 1: Test Title & Overall Summaries ──────────────────────────
+    doc <- officer::body_add_par(doc, paste("Test Characteristics:", content$test_id), style = "heading 1")
+    doc <- flextable::body_add_flextable(doc, content$tables$table_01)
+    doc <- add_blank_line(doc)
+    doc <- flextable::body_add_flextable(doc, content$tables$table_02)
 
-    # Embed all figures
-    for (fig in content$figures) {
-      tmp_fig <- tempfile(fileext = ".png")
-      
-      # Explicitly set width, height, and high DPI to make it crisp 
-      # and automatically silence the "Saving X x Y" messages!
-      suppressMessages(
-        ggplot2::ggsave(
-          filename = tmp_fig, 
-          plot     = fig$plot, 
-          width    = 6.5, 
-          height   = 4.5, 
-          dpi      = 300, 
-          bg       = "white"
-        )
-      )
-      
-      # Create external image object with alt text
-      ext_img <- officer::external_img(
-        src    = tmp_fig,
-        width  = 6.5,
-        height = 4.5,
-        alt    = fig$alt_text
-      )
-      
-      # Wrap in an fpar and add to document
-      doc <- officer::body_add_fpar(doc, officer::fpar(ext_img))
-    }
-    
+    doc <- officer::body_add_break(doc) # Force new page
+
+    # ── SECTION 2: Item Statistics & Wright Map ────────────────────────────
+    doc <- officer::body_add_par(doc, "Item Level Statistics", style = "heading 2")
+    doc <- add_report_figure(doc, content$figures$fig_02)
+    doc <- add_blank_line(doc)
+    doc <- flextable::body_add_flextable(doc, content$tables$table_03)
+
+    doc <- officer::body_add_break(doc)
+
+    # ── SECTION 3: DIF Analysis (Tables and Plots Together!) ───────────────
+    doc <- officer::body_add_par(doc, "Differential Item Functioning (DIF)", style = "heading 2")
+
+    doc <- officer::body_add_par(doc, "DIF by Gender", style = "heading 3")
+    doc <- flextable::body_add_flextable(doc, content$tables$table_12)
+    doc <- add_report_figure(doc, content$figures$fig_04)
+    doc <- officer::body_add_break(doc)
+
+    doc <- officer::body_add_par(doc, "DIF by Economic Disadvantage", style = "heading 3")
+    doc <- flextable::body_add_flextable(doc, content$tables$table_13)
+    doc <- add_report_figure(doc, content$figures$fig_05)
+    doc <- officer::body_add_break(doc)
+
+    # ── SECTION 4: Additional Tables ───────────────────────────────────────
+    doc <- officer::body_add_par(doc, "Additional Statistics", style = "heading 2")
+
+    doc <- officer::body_add_par(doc, "Score Distributions", style = "heading 3")
+    doc <- flextable::body_add_flextable(doc, content$tables$table_04)
+    doc <- add_blank_line(doc)
+    doc <- flextable::body_add_flextable(doc, content$tables$table_05)
+    doc <- officer::body_add_break(doc)
+
+    doc <- officer::body_add_par(doc, "IRT Model Statistics", style = "heading 3")
+    doc <- flextable::body_add_flextable(doc, content$tables$table_06)
+    doc <- add_blank_line(doc)
+    doc <- flextable::body_add_flextable(doc, content$tables$table_07)
+    doc <- add_blank_line(doc)
+    doc <- flextable::body_add_flextable(doc, content$tables$table_08)
+    doc <- add_blank_line(doc)
+    doc <- flextable::body_add_flextable(doc, content$tables$table_09)
+    doc <- officer::body_add_break(doc)
+
+    doc <- officer::body_add_par(doc, "Model Fit and Reliability", style = "heading 3")
+    doc <- flextable::body_add_flextable(doc, content$tables$table_10)
+    doc <- add_blank_line(doc)
+    doc <- flextable::body_add_flextable(doc, content$tables$table_11)
+    doc <- officer::body_add_break(doc)
+
+    doc <- officer::body_add_par(doc, "DIF by Ethnicity", style = "heading 3")
+    doc <- flextable::body_add_flextable(doc, content$tables$table_14)
+    doc <- officer::body_add_break(doc)
+
+    doc <- officer::body_add_par(doc, "Classification Accuracy and Consistency", style = "heading 3")
+    doc <- flextable::body_add_flextable(doc, content$tables$table_15)
+    doc <- add_blank_line(doc)
+    doc <- flextable::body_add_flextable(doc, content$tables$table_16)
+    doc <- add_blank_line(doc)
+    doc <- flextable::body_add_flextable(doc, content$tables$table_17)
+    doc <- officer::body_add_break(doc)
+
+    # ── SECTION 5: Additional Figures ──────────────────────────────────────
+    doc <- officer::body_add_par(doc, "Additional Figures", style = "heading 2")
+    doc <- add_report_figure(doc, content$figures$fig_01)
+    doc <- add_report_figure(doc, content$figures$fig_03)
+    doc <- add_report_figure(doc, content$figures$fig_06)
+    doc <- add_report_figure(doc, content$figures$fig_11)
+    doc <- officer::body_add_break(doc)
+
+    # ── SECTION 6: Learner Characteristics ─────────────────────────────────
+    doc <- officer::body_add_par(doc, "Learner Characteristics Distributions", style = "heading 2")
+
+    doc <- add_report_figure(doc, content$figures$fig_07)
+    doc <- add_report_figure(doc, content$figures$fig_08)
+    doc <- officer::body_add_break(doc)
+
+    doc <- add_report_figure(doc, content$figures$fig_09)
+    doc <- add_report_figure(doc, content$figures$fig_10)
+
     # --- Create a unique page footer for this test's section ---
     footer_block <- officer::block_list(
       officer::fpar(officer::ftext(paste("Test:", content$test_id)))
