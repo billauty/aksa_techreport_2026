@@ -9,26 +9,15 @@ library(stringr)
 # Displays Scale Score distributions across categories of 4
 # Learner Characteristics Inventory (LCI) traits, annotated
 # with pairwise Wilcoxon test p-values.
-#
-# Arguments:
-#   scored_data - data.frame with an SSID column. We use this to get the N.
-#   lci_data    - data.frame loaded from LCI Excel file.
-#   raw_data    - the raw student demographic data containing the scale scores.
-#   test_id     - character; e.g. "RD_04".
-#
-# Returns a list of 4 ggplot objects.
 # ------------------------------------------------------------
 make_figures_07_10_learner_characteristics <- function(scored_data, lci_data, raw_data, test_id) {
   
   # 1. Resolve scale-score column and grade from test_id
   subject <- sub("_.*$", "", test_id)
-  grade_str <- sub("^.*_", "", test_id)
   
-  # For some states, grade might be "04" and the column might be "RD_Scale_Score"
   score_var <- paste0(subject, "_Scale_Score")
   
   # If the specific score variable isn't in the data, default to using the raw scores
-  # (Fallback just in case your raw_data format changed this year)
   use_raw_fallback <- !(score_var %in% names(raw_data))
   
   # 2. Extract secure scores
@@ -50,10 +39,8 @@ make_figures_07_10_learner_characteristics <- function(scored_data, lci_data, ra
   }
   
   # 3. Clean LCI Data and pad SSIDs to match
-  # Ensure column names match what we expect
   names(lci_data) <- gsub(" ", ".", names(lci_data))
   
-  # If columns are missing, return a list of NULLs so the pipeline doesn't crash
   req_cols <- c("Expressive.Communication", "Receptive.Language", "Reading", "Mathematics")
   if (!all(req_cols %in% names(lci_data))) {
     return(list(NULL, NULL, NULL, NULL))
@@ -183,7 +170,8 @@ make_figures_07_10_learner_characteristics <- function(scored_data, lci_data, ra
     return(p)
   }
   
-  # 6. Build and return the 4 plots directly (No PDFs!)
+  # 6. Build and return the 4 plots directly as an unnamed list
+  # R/04_build_report.R expects exactly 4 list elements mapped 1:1 to indices 1:4
   traits <- c("Expressive.Communication", "Receptive.Language", "Reading", "Mathematics")
   plots <- lapply(traits, function(t) {
     sub_dat <- lc_long |> dplyr::filter(LearnerCharacteristic == t)
@@ -191,7 +179,5 @@ make_figures_07_10_learner_characteristics <- function(scored_data, lci_data, ra
     make_boxplot(sub_dat, t)
   })
   
-  # Return named list so assemble_report_content can extract them correctly
-  names(plots) <- traits
   return(plots)
 }
