@@ -516,7 +516,7 @@ make_figure_02_wright_map <- function(mirt_model, scored_resp, cut_score_val) {
   alignment_msg <- ""
   if (pct_outside > 25) {
     alignment_msg <- paste0(
-      "\nNote: ", pct_outside, "% of items fall outside the 90% student ability range (thick grey bar), ",
+      "\nNote: ", pct_outside, "% of items fall outside the student ability range (grey bar), ",
       "indicating potential test-targeting mismatch."
     )
   }
