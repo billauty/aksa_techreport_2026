@@ -483,6 +483,7 @@ make_figure_03_csem <- function(mirt_model) {
 #
 # Returns a ggplot.
 # ------------------------------------------------------------
+
 make_figure_02_wright_map <- function(mirt_model, scored_resp, cut_score_val) {
   # ── Item difficulties ──────────────────────────────────────────────────────
   params    <- mirt::coef(mirt_model, IRTpars = TRUE, simplify = TRUE)$items
@@ -490,7 +491,7 @@ make_figure_02_wright_map <- function(mirt_model, scored_resp, cut_score_val) {
   items_df  <- data.frame(difficulty = item_b)
   
   # ── Person ability estimates ───────────────────────────────────────────────
-  item_cols   <- setdiff(names(scored_resp)[sapply(scored_resp, is.numeric)], "SSID")
+  item_cols   <- setdiff(names(scored_resp)[sapply(scored_resp, is.numeric)], c("SSID", "complete"))
   resp_matrix <- as.matrix(scored_resp[, item_cols, drop = FALSE])
   theta_est   <- as.numeric(mirt::fscores(mirt_model, response.pattern = resp_matrix, verbose = FALSE)[, "F1"])
   persons_df  <- data.frame(theta = theta_est)
@@ -504,6 +505,30 @@ make_figure_02_wright_map <- function(mirt_model, scored_resp, cut_score_val) {
   dot_y      <- max_y * 1.05
   line_top_y <- max_y * 1.02
   
+  # ── Alignment Metrics & The Target "Ruler" Bar ────────────────────────────
+  theta_p05 <- quantile(persons_df$theta, 0.05, na.rm = TRUE)
+  theta_p95 <- quantile(persons_df$theta, 0.95, na.rm = TRUE)
+  
+  # How many items fall outside this target zone?
+  items_outside <- sum(items_df$difficulty < theta_p05 | items_df$difficulty > theta_p95)
+  pct_outside   <- round((items_outside / nrow(items_df)) * 100, 1)
+  
+  alignment_msg <- ""
+  if (pct_outside > 25) {
+    alignment_msg <- paste0(
+      "\nNote: ", pct_outside, "% of items fall outside the 90% student ability range (thick grey bar), ",
+      "indicating potential test-targeting mismatch."
+    )
+  }
+  
+  # Create explicit dataframe for the horizontal "Ruler" bar behind the dots
+  ruler_df <- data.frame(
+    x    = (theta_p05 + theta_p95) / 2, # Center point
+    y    = dot_y,
+    xmin = theta_p05, 
+    xmax = theta_p95
+  )
+  
   # ── Plot ───────────────────────────────────────────────────────────────────
   p <- ggplot() +
     # Layer 1: Student Ability Density (grey fill, 0.25 alpha)
@@ -514,11 +539,16 @@ make_figure_02_wright_map <- function(mirt_model, scored_resp, cut_score_val) {
     geom_density(data = items_df, aes(x = difficulty), 
                  fill = NA, colour = "black", linewidth = 1) +
     
-    # Layer 3: Item Difficulty Dot Plot (Top boundary)
+    # Layer 3: The Target Ruler Bar (Behind the dots)
+    # A thick dark grey bar showing the 5th-95th percentile range
+    geom_segment(data = ruler_df, aes(x = xmin, xend = xmax, y = y, yend = y),
+                 color = "grey30", linewidth = 6, alpha = 0.5) +
+    
+    # Layer 4: Item Difficulty Dot Plot (Top boundary)
     geom_point(data = items_df, aes(x = difficulty, y = dot_y), 
                shape = 16, size = 3, colour = "#2166AC")
   
-  # Layer 4: Vertical NAPD Cut Scores (only draw if cut scores exist)
+  # Layer 5: Vertical NAPD Cut Scores
   if (is.numeric(cut_score_val) && length(cut_score_val) > 0 && !any(is.na(cut_score_val))) {
     p <- p + geom_segment(
       data = data.frame(cut = cut_score_val), 
@@ -529,23 +559,27 @@ make_figure_02_wright_map <- function(mirt_model, scored_resp, cut_score_val) {
   
   p <- p + labs(
     x       = expression("Logit Scale (Student Ability or Item Difficulty)"),
-    axis.title.y = element_text(size = 9, lineheight = 1.1, margin = margin(r = 10)),
+    y       = "Density: Proportion of Student Ability or Item Difficulty", 
     title   = "Figure 2: Wright Map \u2014 Student Ability and Item Difficulty",
     caption = paste0(
       "Grey shaded area = Student Ability Density. Solid black line = Item Difficulty Density.\n",
-      "Blue dots = Individual Items. Red dashed lines = NAPD Cut Scores."
+      "Thick grey horizontal bar = 90% Student Ability Range (5th to 95th percentiles).\n",
+      "Blue dots = Individual Items. Red dashed lines = NAPD Cut Scores.",
+      alignment_msg
     )
   ) +
+    coord_cartesian(clip = "off") + 
     theme_minimal() +
     theme(
+      axis.title.y     = element_text(size = 9, lineheight = 1.1, margin = margin(r = 10)), # Restore your original styling
       axis.text.y      = element_blank(), 
       axis.ticks.y     = element_blank(),
       panel.grid.minor = element_blank(),
-      plot.caption     = element_text(size = 8, hjust = 0),
-      axis.title.y     = element_text(margin = margin(r = 10)) # Add a little breathing room
+      plot.caption     = element_text(hjust = 0, face = "italic"),
+      plot.margin      = margin(t = 15, r = 15, b = 10, l = 10)
     )
   
-  p
+  return(p)
 }
 
 # ------------------------------------------------------------
